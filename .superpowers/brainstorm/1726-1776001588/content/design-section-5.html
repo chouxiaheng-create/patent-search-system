@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>设计节 5 — 报告格式</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0f1e;
+    color: #e2e8f0;
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    padding: 28px 24px;
+  }
+  h2 { font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+  .subtitle { color: #64748b; font-size: 12px; margin-bottom: 24px; }
+  h3 { font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 12px; letter-spacing: 0.5px; text-transform: uppercase; }
+
+  .section { margin-bottom: 28px; }
+
+  /* 报告预览容器 */
+  .report-preview {
+    background: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    color: #1e293b;
+    font-size: 12px;
+  }
+
+  .report-header {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    color: white;
+    padding: 20px 24px;
+  }
+  .report-header h1 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .report-meta { font-size: 10px; opacity: 0.8; line-height: 1.8; }
+
+  .report-body { padding: 20px 24px; }
+
+  .report-section-title {
+    font-size: 13px; font-weight: 700; color: #1d4ed8;
+    border-bottom: 2px solid #dbeafe;
+    padding-bottom: 6px; margin-bottom: 12px; margin-top: 20px;
+  }
+  .report-section-title:first-child { margin-top: 0; }
+
+  /* 待审专利摘要 */
+  .patent-summary {
+    background: #f8fafc; border-radius: 8px;
+    border-left: 4px solid #1d4ed8;
+    padding: 12px 14px; margin-bottom: 4px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    font-size: 11px; line-height: 1.8;
+  }
+  .field-label { color: #64748b; }
+  .field-val { color: #1e293b; font-weight: 500; }
+
+  /* 文献卡片 */
+  .doc-card {
+    border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 8px;
+    position: relative;
+  }
+  .doc-rank {
+    position: absolute; top: 10px; right: 12px;
+    background: #1d4ed8; color: #fff;
+    font-size: 9px; font-weight: 700;
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .doc-title { font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 4px; padding-right: 30px; }
+  .doc-source {
+    display: inline-block; font-size: 9px;
+    background: #eff6ff; color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    padding: 1px 8px; border-radius: 10px; margin-bottom: 6px;
+  }
+  .doc-meta { font-size: 10px; color: #64748b; line-height: 1.7; }
+  .doc-meta a { color: #2563eb; text-decoration: none; }
+  .doc-relevance {
+    background: #f0fdf4; border-left: 3px solid #22c55e;
+    padding: 6px 10px; border-radius: 0 4px 4px 0;
+    font-size: 10px; color: #15803d; margin-top: 8px; line-height: 1.6;
+  }
+  .doc-citation {
+    background: #f8fafc; padding: 6px 10px; border-radius: 4px;
+    font-size: 9px; color: #475569; margin-top: 6px;
+    font-family: monospace; line-height: 1.6;
+  }
+
+  /* 路径执行情况 */
+  .path-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px; border-radius: 6px;
+    margin-bottom: 4px; font-size: 10px;
+  }
+  .path-ok { background: #f0fdf4; color: #15803d; }
+  .path-fail { background: #fef2f2; color: #dc2626; }
+  .path-icon { font-size: 12px; flex-shrink: 0; }
+  .path-name { font-weight: 600; min-width: 80px; }
+  .path-strategy { color: inherit; opacity: 0.8; min-width: 90px; }
+  .path-count { margin-left: auto; opacity: 0.8; }
+
+  /* 导出栏 */
+  .export-bar {
+    background: #f8fafc; border-top: 1px solid #e2e8f0;
+    padding: 12px 24px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .export-label { font-size: 11px; color: #64748b; margin-right: 4px; }
+  .export-btn {
+    display: flex; align-items: center; gap: 5px;
+    border: 1px solid #e2e8f0; border-radius: 6px;
+    padding: 5px 12px; font-size: 10px; cursor: pointer;
+    background: white; color: #374151; font-weight: 500;
+  }
+  .export-btn.primary { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+
+  /* 右侧说明 */
+  .notes { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .note-card {
+    background: #1e293b; border-radius: 8px; padding: 12px 14px;
+    border-left: 3px solid #3b82f6; font-size: 11px; line-height: 1.8;
+  }
+  .note-title { color: #60a5fa; font-weight: 600; margin-bottom: 6px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h2>设计节 5 / 5 — 检索报告格式与导出</h2>
+<p class="subtitle">HTML 主报告 · 导出 Word / Markdown / Excel · 每篇文献含来源溯源 + 国标引文</p>
+
+<div style="display:grid; grid-template-columns: 1fr 340px; gap: 20px;">
+
+  <!-- 左：报告预览 -->
+  <div>
+    <h3>报告预览（清爽专业白风格）</h3>
+    <div class="report-preview">
+
+      <!-- 报告头部 -->
+      <div class="report-header">
+        <h1>专利新创性检索报告</h1>
+        <div class="report-meta">
+          申请号：CN202410001234.7 &nbsp;|&nbsp; 生成时间：2026-04-12 14:35
+          &nbsp;|&nbsp; 检索平台：秘塔AI、Kimi K2.5 &nbsp;|&nbsp; 检索策略：追踪检索、发明构思检索
+        </div>
+      </div>
+
+      <div class="report-body">
+
+        <!-- 待审专利摘要 -->
+        <div class="report-section-title">一、待审专利基本信息</div>
+        <div class="patent-summary">
+          <div><span class="field-label">技术主题：</span><span class="field-val">图像去噪处理</span></div>
+          <div><span class="field-label">申请人：</span><span class="field-val">张三</span></div>
+          <div><span class="field-label">发明人：</span><span class="field-val">张三、李四</span></div>
+          <div><span class="field-label">申请日：</span><span class="field-val">2024-01-15</span></div>
+          <div style="grid-column:1/-1;"><span class="field-label">核心发明构思：</span><span class="field-val">一种基于自适应滤波的图像去噪方法，通过动态调整滤波参数实现边缘保护。</span></div>
+        </div>
+
+        <!-- 对比文献列表 -->
+        <div class="report-section-title">二、最相关对比文献（Top 5 / 10）</div>
+
+        <div class="doc-card">
+          <div class="doc-rank">1</div>
+          <div class="doc-title">基于自适应维纳滤波的图像去噪算法研究</div>
+          <div class="doc-source">秘塔AI · 发明构思检索</div>
+          <div class="doc-meta">
+            作者：王五 等 &nbsp;|&nbsp; 公开时间：2023-08-20<br/>
+            来源：<a href="#">中国知网 · 计算机工程与应用</a>
+          </div>
+          <div class="doc-relevance">
+            相关特征：同样采用自适应滤波机制处理图像噪声，核心参数动态调整思路与本申请高度重叠，但未涉及边缘保护策略。
+          </div>
+          <div class="doc-citation">王五, 赵六. 基于自适应维纳滤波的图像去噪算法研究[J]. 计算机工程与应用, 2023, 59(16): 112-118.</div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-rank">2</div>
+          <div class="doc-title">Edge-Preserving Image Denoising via Adaptive Bilateral Filter</div>
+          <div class="doc-source">Kimi K2.5 · 追踪检索</div>
+          <div class="doc-meta">
+            作者：John Smith et al. &nbsp;|&nbsp; 公开时间：2022-11-03<br/>
+            来源：<a href="#">IEEE Transactions on Image Processing</a>
+          </div>
+          <div class="doc-relevance">
+            相关特征：边缘保护滤波思路与本申请发明目的一致，但使用双边滤波而非自适应参数调整，技术路径存在差异。
+          </div>
+          <div class="doc-citation">Smith J, et al. Edge-Preserving Image Denoising via Adaptive Bilateral Filter[J]. IEEE Trans. Image Process., 2022, 31: 5821-5834.</div>
+        </div>
+
+        <div style="color:#94a3b8;font-size:10px;text-align:center;padding:6px 0;">… 第 3–10 篇对比文献（格式同上）…</div>
+
+        <!-- 路径执行情况 -->
+        <div class="report-section-title">三、检索路径执行情况</div>
+        <div class="path-row path-ok">
+          <span class="path-icon">✅</span>
+          <span class="path-name">秘塔AI</span>
+          <span class="path-strategy">追踪检索</span>
+          <span class="path-count">获取 5 篇候选文献</span>
+        </div>
+        <div class="path-row path-ok">
+          <span class="path-icon">✅</span>
+          <span class="path-name">秘塔AI</span>
+          <span class="path-strategy">发明构思检索</span>
+          <span class="path-count">获取 5 篇候选文献</span>
+        </div>
+        <div class="path-row path-ok">
+          <span class="path-icon">✅</span>
+          <span class="path-name">Kimi K2.5</span>
+          <span class="path-strategy">追踪检索</span>
+          <span class="path-count">获取 5 篇候选文献</span>
+        </div>
+        <div class="path-row path-fail">
+          <span class="path-icon">❌</span>
+          <span class="path-name">Kimi K2.5</span>
+          <span class="path-strategy">发明构思检索</span>
+          <span class="path-count">超时放弃（已重试1次）</span>
+        </div>
+        <div style="font-size:10px;color:#64748b;margin-top:6px;padding:0 4px;">
+          备注：本报告基于 3 条有效路径（共 15 篇候选文献，去重后 12 篇）筛选生成。
+        </div>
+
+      </div>
+
+      <!-- 导出工具栏 -->
+      <div class="export-bar">
+        <span class="export-label">导出格式：</span>
+        <div class="export-btn primary">📄 Word (.docx)</div>
+        <div class="export-btn">📝 Markdown</div>
+        <div class="export-btn">📊 Excel (.xlsx)</div>
+        <div style="margin-left:auto;font-size:10px;color:#94a3b8;">HTML 版本可直接打印</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 右：导出格式说明 -->
+  <div>
+    <h3>导出格式内容说明</h3>
+    <div class="notes">
+      <div class="note-card">
+        <div class="note-title">📄 Word (.docx)</div>
+        完整报告结构（标题、待审专利信息、对比文献列表、路径摘要），使用 <code>docx</code> 库生成，保留蓝色标题样式、文献编号和国标引文格式，可直接存档或提交。
+      </div>
+      <div class="note-card">
+        <div class="note-title">📝 Markdown</div>
+        纯文本结构化输出，适合粘贴至内部系统或 Notion/飞书等协作工具。标题层级对应报告章节，链接保留为 Markdown 格式。
+      </div>
+      <div class="note-card">
+        <div class="note-title">📊 Excel (.xlsx)</div>
+        每篇对比文献占一行，列包含：排名、标题、作者、来源平台、检索策略、出处链接、公开时间、相关特征描述、国标引文。便于批量管理和二次筛选。
+      </div>
+      <div class="note-card" style="border-left-color:#f59e0b;">
+        <div class="note-title" style="color:#fbbf24;">🔒 权限控制</div>
+        报告仅创建者本人可查看/导出/删除。Admin 可查看所有用户报告但不可代为删除。导出操作记录日志用于审计。
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="text-align:center;color:#475569;font-size:12px;margin-top:24px;">这是第 5 节（最后一节）：报告格式与导出。确认后将完成全部设计展示，进入文档撰写阶段。</p>
+
+</body>
+</html>

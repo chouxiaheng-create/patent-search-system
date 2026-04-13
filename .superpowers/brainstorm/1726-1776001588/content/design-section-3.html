@@ -1,0 +1,174 @@
+<h2>设计节 3 / 5 — 前端页面流程与 UI 结构</h2>
+<p class="subtitle">Next.js 14 App Router · 6 大页面组 · 3 步检索向导 · React Flow 实时看板</p>
+
+<div class="section">
+  <h3>页面导航结构</h3>
+  <div style="background:#0f172a;border-radius:8px;padding:16px;font-size:11px;font-family:monospace;color:#e2e8f0;line-height:2;">
+    <div style="color:#38bdf8;">/</div>
+    <div style="color:#64748b;">├── <span style="color:#4ade80;">(auth)</span></div>
+    <div style="color:#64748b;">│   ├── <span style="color:#e2e8f0;">/login</span> — 登录页</div>
+    <div style="color:#64748b;">│   └── <span style="color:#e2e8f0;">/register</span> — 注册页</div>
+    <div style="color:#64748b;">├── <span style="color:#4ade80;">(app)</span> — 需登录，侧边栏布局</div>
+    <div style="color:#64748b;">│   ├── <span style="color:#e2e8f0;">/dashboard</span> — 任务历史总览</div>
+    <div style="color:#64748b;">│   ├── <span style="color:#e2e8f0;">/search/new</span> — 新建检索（3 步向导）</div>
+    <div style="color:#64748b;">│   │   ├── <span style="color:#fbbf24;">step-1</span>: 上传 + 解析</div>
+    <div style="color:#64748b;">│   │   ├── <span style="color:#fbbf24;">step-2</span>: 配置检索策略</div>
+    <div style="color:#64748b;">│   │   └── <span style="color:#fbbf24;">step-3</span>: 确认提交 / 定时预约</div>
+    <div style="color:#64748b;">│   ├── <span style="color:#e2e8f0;">/search/[jobId]/progress</span> — 实时进度看板</div>
+    <div style="color:#64748b;">│   ├── <span style="color:#e2e8f0;">/search/[jobId]/report</span> — 检索报告 + 导出</div>
+    <div style="color:#64748b;">│   ├── <span style="color:#e2e8f0;">/settings/models</span> — AI 模型库管理</div>
+    <div style="color:#64748b;">│   ├── <span style="color:#e2e8f0;">/settings/strategies</span> — 检索策略管理</div>
+    <div style="color:#64748b;">│   └── <span style="color:#a78bfa;">/admin</span> — 仅 Admin 可见</div>
+    <div style="color:#64748b;">│       ├── <span style="color:#e2e8f0;">/admin/users</span> — 用户管理</div>
+    <div style="color:#64748b;">│       └── <span style="color:#e2e8f0;">/admin/jobs</span> — 所有任务总览</div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>核心页面线框图</h3>
+
+  <!-- 仪表盘 -->
+  <div style="margin-bottom:20px;">
+    <div style="color:#94a3b8;font-size:11px;margin-bottom:8px;">① /dashboard — 任务历史总览</div>
+    <div class="mockup">
+      <div class="mockup-header">Patent Search Agent — 我的检索任务</div>
+      <div class="mockup-body" style="display:grid;grid-template-columns:160px 1fr;gap:0;min-height:200px;">
+        <div class="mock-sidebar" style="font-size:11px;line-height:2.2;padding:12px;">
+          📋 我的任务<br/>
+          ➕ 新建检索<br/>
+          ⚙️ 模型库<br/>
+          📐 检索策略<br/>
+          <span style="color:#64748b;">— — —</span><br/>
+          <span style="color:#a78bfa;">🔧 管理后台</span>
+        </div>
+        <div class="mock-content" style="padding:12px;font-size:11px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="color:#e2e8f0;font-weight:bold;">检索任务列表</span>
+            <div class="mock-button" style="font-size:10px;padding:4px 10px;">+ 新建检索</div>
+          </div>
+          <div style="background:#1e293b;border-radius:6px;padding:8px;margin-bottom:6px;display:grid;grid-template-columns:1fr auto auto;gap:8px;font-size:10px;align-items:center;">
+            <span>📄 CN202410001234.7 — 一种图像处理方法</span>
+            <span style="color:#4ade80;">✅ 已完成</span>
+            <span style="color:#38bdf8;">查看报告</span>
+          </div>
+          <div style="background:#1e293b;border-radius:6px;padding:8px;margin-bottom:6px;display:grid;grid-template-columns:1fr auto auto;gap:8px;font-size:10px;align-items:center;">
+            <span>📄 CN202410005678.2 — 一种数据传输装置</span>
+            <span style="color:#f97316;">⏳ 排队中 #2</span>
+            <span style="color:#38bdf8;">查看进度</span>
+          </div>
+          <div style="background:#1e293b;border-radius:6px;padding:8px;display:grid;grid-template-columns:1fr auto auto;gap:8px;font-size:10px;align-items:center;">
+            <span>📄 CN202410009999.0 — 一种散热结构</span>
+            <span style="color:#a78bfa;">🕙 定时 23:00</span>
+            <span style="color:#64748b;">取消预约</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3步向导 -->
+  <div style="margin-bottom:20px;">
+    <div style="color:#94a3b8;font-size:11px;margin-bottom:8px;">② /search/new — 3 步检索向导</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+
+      <div class="mockup">
+        <div class="mockup-header" style="background:#1d4ed8;">Step 1 · 上传 &amp; 解析</div>
+        <div class="mockup-body" style="font-size:10px;padding:10px;">
+          <div style="border:2px dashed #334155;border-radius:6px;padding:16px;text-align:center;color:#64748b;margin-bottom:8px;">
+            拖拽或点击上传<br/>PDF / Word / Excel / TXT
+          </div>
+          <div style="margin-bottom:6px;">解析用模型：<span style="color:#38bdf8;">DeepSeek-R1 ▾</span></div>
+          <div style="background:#0f172a;border-radius:4px;padding:8px;line-height:1.8;">
+            <div>技术主题：<span style="color:#4ade80;">图像处理</span></div>
+            <div>申请人：<span style="color:#4ade80;">张三</span></div>
+            <div>核心发明构思：<span style="color:#fbbf24;">⚠ 排版复杂，建议审查</span></div>
+            <div>+ 自定义字段 ▾</div>
+          </div>
+          <div class="mock-button" style="margin-top:8px;font-size:10px;">下一步 →</div>
+        </div>
+      </div>
+
+      <div class="mockup">
+        <div class="mockup-header" style="background:#0f766e;">Step 2 · 配置检索</div>
+        <div class="mockup-body" style="font-size:10px;padding:10px;">
+          <div style="margin-bottom:8px;">
+            <div style="color:#94a3b8;margin-bottom:4px;">检索平台（多选）</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+              <span style="background:#164e63;color:#67e8f9;padding:2px 8px;border-radius:10px;">✓ 秘塔AI</span>
+              <span style="background:#164e63;color:#67e8f9;padding:2px 8px;border-radius:10px;">✓ Kimi K2.5</span>
+              <span style="background:#1e293b;color:#64748b;padding:2px 8px;border-radius:10px;">智谱GLM</span>
+              <span style="background:#1e293b;color:#38bdf8;padding:2px 8px;border-radius:10px;">+ 添加</span>
+            </div>
+          </div>
+          <div style="margin-bottom:8px;">
+            <div style="color:#94a3b8;margin-bottom:4px;">检索策略（多选）</div>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <span style="background:#164e63;color:#67e8f9;padding:2px 8px;border-radius:4px;">✓ 追踪检索</span>
+              <span style="background:#164e63;color:#67e8f9;padding:2px 8px;border-radius:4px;">✓ 发明构思检索</span>
+              <span style="background:#1e293b;color:#64748b;padding:2px 8px;border-radius:4px;">主要技术方案步骤检索</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;">
+            <div>每路径取 <input class="mock-input" style="width:30px;text-align:center;" value="5"/> 篇</div>
+            <div>报告输出 <input class="mock-input" style="width:30px;text-align:center;" value="10"/> 篇</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mockup">
+        <div class="mockup-header" style="background:#7c3aed;">Step 3 · 确认提交</div>
+        <div class="mockup-body" style="font-size:10px;padding:10px;">
+          <div style="background:#0f172a;border-radius:4px;padding:8px;margin-bottom:8px;line-height:1.8;color:#94a3b8;">
+            <div>平台：秘塔AI、Kimi K2.5</div>
+            <div>策略：追踪检索、发明构思检索</div>
+            <div>子任务：2 × 2 = <strong style="color:#e2e8f0;">4 条</strong></div>
+            <div>预计完成时间：~20 分钟</div>
+          </div>
+          <div style="background:#1e3a5f;border-radius:4px;padding:6px;margin-bottom:8px;font-size:10px;color:#93c5fd;">
+            📋 当前队列：1 个任务排队中<br/>
+            预计开始：约 8 分钟后
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div class="mock-button" style="font-size:10px;background:#1d4ed8;">立即提交（进入队列）</div>
+            <div class="mock-button" style="font-size:10px;background:#334155;">🕙 定时执行 ▾</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 进度看板 -->
+  <div style="margin-bottom:20px;">
+    <div style="color:#94a3b8;font-size:11px;margin-bottom:8px;">③ /search/[jobId]/progress — React Flow 动态工作流看板</div>
+    <div class="mockup">
+      <div class="mockup-header">实时进度看板 — CN202410001234.7</div>
+      <div class="mockup-body" style="padding:12px;font-size:10px;">
+        <div style="display:grid;grid-template-columns:auto 1fr auto 1fr auto;gap:0;align-items:center;margin-bottom:16px;">
+          <!-- 开始节点 -->
+          <div style="background:#1d4ed8;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;text-align:center;">文献<br/>解析</div>
+          <div style="height:2px;background:#4ade80;margin:0 4px;"></div>
+          <!-- 并行检索节点 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+            <div style="background:#14532d;border:1px solid #4ade80;border-radius:6px;padding:5px 8px;text-align:center;">秘塔AI<br/>追踪检索<br/><span style="color:#4ade80;">✅ 完成</span></div>
+            <div style="background:#14532d;border:1px solid #4ade80;border-radius:6px;padding:5px 8px;text-align:center;">秘塔AI<br/>发明构思<br/><span style="color:#4ade80;">✅ 完成</span></div>
+            <div style="background:#1e3a5f;border:1px solid #38bdf8;border-radius:6px;padding:5px 8px;text-align:center;">Kimi K2.5<br/>追踪检索<br/><span style="color:#38bdf8;">⏳ 运行中</span></div>
+            <div style="background:#1e293b;border:1px solid #334155;border-radius:6px;padding:5px 8px;text-align:center;color:#64748b;">Kimi K2.5<br/>发明构思<br/>等待中...</div>
+          </div>
+          <div style="height:2px;background:#334155;margin:0 4px;"></div>
+          <!-- 报告节点 -->
+          <div style="background:#334155;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:9px;text-align:center;">报告<br/>生成</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center;font-size:9px;color:#64748b;">
+          <div><span style="color:#4ade80;">■</span> 已完成 (2)</div>
+          <div><span style="color:#38bdf8;">■</span> 进行中 (1)</div>
+          <div><span style="color:#f97316;">■</span> 重试中 (0)</div>
+          <div><span style="color:#ef4444;">■</span> 遇阻 (0)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="text-align:center;margin-top:16px;">这是第 3 节：前端页面流程。确认后进入第 4 节（检索编排 + 超时重试逻辑）。</p>

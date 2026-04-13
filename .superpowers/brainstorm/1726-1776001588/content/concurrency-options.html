@@ -1,0 +1,124 @@
+<h2>并发策略重新设计 — 成本优先</h2>
+<p class="subtitle">关键洞察：单个任务内部（M×N 条 AI 请求）用 Promise.all 并行，几乎零额外成本；成本控制点在于同时运行多少个"用户任务"</p>
+
+<div style="background:#1e293b;border-radius:8px;padding:16px;margin-bottom:20px;font-size:12px;">
+  <div style="color:#4ade80;margin-bottom:8px;font-weight:bold;">💡 核心澄清</div>
+  <div style="color:#cbd5e1;line-height:1.8;">
+    "3 平台 × 3 策略 = 9 条并行 AI 请求" 在 Node.js 里用 <code style="color:#a78bfa;">Promise.all</code> 实现，<strong style="color:#e2e8f0;">不增加服务器数量</strong>，只是等待网络 IO，Worker 一台机器完全够用。<br/>
+    真正影响成本的是：<strong style="color:#f97316;">同时允许几个用户的整体任务并行执行</strong>。
+  </div>
+</div>
+
+<div class="options">
+
+  <!-- 方案 X：串行队列 + 排队提示 -->
+  <div class="option" data-choice="x" onclick="toggleSelect(this)">
+    <div class="letter">X</div>
+    <div class="content">
+      <h3>串行队列 + 位置提示 + 定时预约</h3>
+      <p style="font-size:12px;color:#94a3b8;margin:4px 0 10px;">一次只跑 1 个任务 · 用户看到排队位置 · 可预约低峰时段执行</p>
+
+      <div style="background:#0f172a;border-radius:6px;padding:12px;font-size:11px;font-family:monospace;line-height:2;color:#e2e8f0;">
+        用户A提交 → [队列: 1st] → 立即执行（9个并行AI调用）→ 完成通知<br/>
+        用户B提交 → [队列: 2nd, 预计等待 ~8 分钟] → ...<br/>
+        用户C提交 → [队列: 3rd] 或 选择 [定时: 今晚 22:00 执行]
+      </div>
+
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <div style="color:#4ade80;font-size:11px;margin-bottom:4px;">✅ 优势</div>
+          <ul style="color:#bbf7d0;font-size:11px;margin:0;padding-left:14px;line-height:1.8;">
+            <li>Worker 最低配置（Railway 免费层可用）</li>
+            <li>基础设施成本接近 <strong>$0/月</strong></li>
+            <li>逻辑最简单，最易维护</li>
+            <li>定时预约对审查员友好（任务不急）</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color:#f87171;font-size:11px;margin-bottom:4px;">⚠️ 权衡</div>
+          <ul style="color:#fca5a5;font-size:11px;margin:0;padding-left:14px;line-height:1.8;">
+            <li>高峰期单任务最长等待可达 30-40 分钟</li>
+            <li>需要设计好的排队 UX（通知机制）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 方案 Y：2-3 并发 + 智能队列（推荐） -->
+  <div class="option" data-choice="y" onclick="toggleSelect(this)">
+    <div class="letter">Y</div>
+    <div class="content">
+      <h3>限制并发 2 槽位 + 智能队列（推荐）</h3>
+      <p style="font-size:12px;color:#94a3b8;margin:4px 0 10px;">同时最多 2 个用户任务 · 超出排队 · 可预约执行 · 成本极低</p>
+
+      <div style="background:#0f172a;border-radius:6px;padding:12px;font-size:11px;font-family:monospace;line-height:2;color:#e2e8f0;">
+        用户A → [槽位1: 执行中 🟢] → 9个并行AI请求<br/>
+        用户B → [槽位2: 执行中 🟢] → 9个并行AI请求<br/>
+        用户C → [队列等待 🟡, 位置: #1, 预计等待 ~5 分钟]<br/>
+        用户D → [定时预约 🕙, 今晚 23:00]
+      </div>
+
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <div style="color:#4ade80;font-size:11px;margin-bottom:4px;">✅ 优势</div>
+          <ul style="color:#bbf7d0;font-size:11px;margin:0;padding-left:14px;line-height:1.8;">
+            <li>单台 Worker 轻松支撑（Railway $5/月）</li>
+            <li>等待时间减半，体验明显优于纯串行</li>
+            <li>pg-boss 原生支持 <code>maxWorkers</code> 配置</li>
+            <li>定时预约 + 实时通知双保障</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color:#f87171;font-size:11px;margin-bottom:4px;">⚠️ 权衡</div>
+          <ul style="color:#fca5a5;font-size:11px;margin:0;padding-left:14px;line-height:1.8;">
+            <li>峰值时仍有排队，但概率低</li>
+            <li>比方案 X 多一点复杂度（仍然很简单）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="background:#1e293b;border-radius:8px;padding:16px;margin-top:20px;font-size:12px;">
+  <div style="color:#4ade80;margin-bottom:8px;font-weight:bold;">📊 成本估算对比</div>
+  <table style="width:100%;border-collapse:collapse;color:#cbd5e1;font-size:11px;">
+    <tr style="color:#94a3b8;border-bottom:1px solid #334155;">
+      <td style="padding:6px 0;">方案</td>
+      <td style="padding:6px;">Vercel（前端）</td>
+      <td style="padding:6px;">Supabase</td>
+      <td style="padding:6px;">Worker（Railway）</td>
+      <td style="padding:6px;color:#fbbf24;">月均总费用</td>
+    </tr>
+    <tr style="border-bottom:1px solid #1e293b;">
+      <td style="padding:6px 0;">原方案 A（无限并发）</td>
+      <td style="padding:6px;">免费</td>
+      <td style="padding:6px;">免费/Pro $25</td>
+      <td style="padding:6px;">$10-20+</td>
+      <td style="padding:6px;color:#f87171;">$35-45+</td>
+    </tr>
+    <tr style="border-bottom:1px solid #1e293b;">
+      <td style="padding:6px 0;">方案 X（串行队列）</td>
+      <td style="padding:6px;">免费</td>
+      <td style="padding:6px;">免费</td>
+      <td style="padding:6px;">$0（免费层）</td>
+      <td style="padding:6px;color:#4ade80;font-weight:bold;">$0/月</td>
+    </tr>
+    <tr>
+      <td style="padding:6px 0;">方案 Y（限 2 并发）</td>
+      <td style="padding:6px;">免费</td>
+      <td style="padding:6px;">免费</td>
+      <td style="padding:6px;">$5（Hobby）</td>
+      <td style="padding:6px;color:#4ade80;font-weight:bold;">~$5/月</td>
+    </tr>
+  </table>
+</div>
+
+<div style="background:#1c2a1c;border:1px solid #4ade80;border-radius:8px;padding:12px;margin-top:14px;font-size:12px;">
+  <strong style="color:#4ade80;">推荐：方案 Y（限 2 并发 + 队列 + 定时预约）</strong><br/>
+  <span style="color:#bbf7d0;">对于 10-50 位审查员的实际使用场景，同时提交检索任务的概率很低。限 2 并发在绝大多数情况下几乎感知不到排队，月成本仅 $5，且保留了良好的用户体验。</span>
+</div>
+
+<p class="subtitle" style="text-align:center;margin-top:16px;">请在浏览器点击选择，或在终端告诉我你的决定。</p>

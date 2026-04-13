@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>UI 风格选择</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0f1e;
+    color: #e2e8f0;
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+  h2 { font-size: 22px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
+  .subtitle { color: #64748b; font-size: 13px; margin-bottom: 28px; }
+
+  .cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+  .style-card {
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.25s ease;
+    position: relative;
+  }
+  .style-card:hover { transform: translateY(-4px); }
+  .style-card.selected { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,0.25); }
+  .style-card .badge {
+    position: absolute; top: 12px; right: 12px;
+    background: #6366f1; color: #fff;
+    font-size: 10px; padding: 3px 10px; border-radius: 20px;
+    display: none;
+  }
+  .style-card.selected .badge { display: block; }
+
+  .card-label {
+    padding: 14px 16px 10px;
+    font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-desc { padding: 0 16px 14px; font-size: 11px; color: #94a3b8; line-height: 1.6; }
+
+  /* ── 风格 A：深邃科技蓝 ── */
+  .preview-a {
+    background: #0d1b2e;
+    padding: 16px;
+    height: 260px;
+    overflow: hidden;
+    border-bottom: 1px solid #1e3a5f;
+  }
+  .a-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .a-logo { color: #38bdf8; font-weight: 800; font-size: 13px; letter-spacing: 1px; }
+  .a-nav-links { display: flex; gap: 14px; font-size: 10px; color: #64748b; }
+  .a-nav-links span { color: #38bdf8; }
+  .a-card {
+    background: linear-gradient(135deg, #0f2d4a 0%, #0d1b2e 100%);
+    border: 1px solid #1e3a5f;
+    border-radius: 10px; padding: 12px; margin-bottom: 10px;
+  }
+  .a-stat { font-size: 9px; color: #64748b; margin-bottom: 4px; }
+  .a-val { font-size: 18px; font-weight: 700; color: #38bdf8; }
+  .a-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .a-tag { background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.3); color: #38bdf8; font-size: 9px; padding: 3px 8px; border-radius: 20px; display: inline-block; }
+  .a-btn { background: linear-gradient(90deg,#0ea5e9,#6366f1); color: #fff; font-size: 9px; padding: 5px 14px; border-radius: 6px; display: inline-block; margin-top: 8px; }
+  .a-progress { height: 4px; background: #1e3a5f; border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .a-progress-fill { height: 100%; background: linear-gradient(90deg,#38bdf8,#6366f1); width: 65%; border-radius: 2px; }
+  .a-nodes { display: flex; gap: 6px; margin-top: 8px; }
+  .a-node { flex: 1; background: rgba(56,189,248,0.05); border: 1px solid; border-radius: 6px; padding: 6px; font-size: 8px; text-align: center; }
+  .a-node.done { border-color: #22c55e; color: #4ade80; }
+  .a-node.run { border-color: #38bdf8; color: #38bdf8; }
+  .a-node.wait { border-color: #1e3a5f; color: #475569; }
+
+  /* ── 风格 B：清爽专业白 ── */
+  .preview-b {
+    background: #f8fafc;
+    padding: 16px;
+    height: 260px;
+    overflow: hidden;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .b-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #fff; border-radius: 8px; padding: 8px 12px;
+    margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .b-logo { color: #2563eb; font-weight: 800; font-size: 12px; }
+  .b-nav-links { display: flex; gap: 12px; font-size: 10px; color: #94a3b8; }
+  .b-nav-links span { color: #2563eb; font-weight: 600; }
+  .b-card {
+    background: #fff; border-radius: 10px; padding: 10px 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 8px;
+    border-left: 3px solid #2563eb;
+  }
+  .b-title { font-size: 10px; font-weight: 600; color: #1e293b; margin-bottom: 3px; }
+  .b-sub { font-size: 9px; color: #64748b; }
+  .b-badge { display: inline-block; font-size: 8px; padding: 2px 8px; border-radius: 10px; }
+  .b-done { background: #dcfce7; color: #16a34a; }
+  .b-run { background: #dbeafe; color: #2563eb; }
+  .b-wait { background: #f1f5f9; color: #64748b; }
+  .b-btn { background: #2563eb; color: #fff; font-size: 9px; padding: 5px 14px; border-radius: 6px; display: inline-block; margin-top: 6px; }
+  .b-progress { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  .b-progress-fill { height: 100%; background: #2563eb; width: 65%; border-radius: 3px; }
+
+  /* ── 风格 C：磨砂深色 ── */
+  .preview-c {
+    background: #111827;
+    padding: 16px;
+    height: 260px;
+    overflow: hidden;
+    border-bottom: 1px solid #1f2937;
+  }
+  .c-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #1f2937;
+  }
+  .c-logo { color: #f9fafb; font-weight: 800; font-size: 12px; }
+  .c-dot { width: 6px; height: 6px; border-radius: 50%; background: #a855f7; display: inline-block; margin-right: 6px; }
+  .c-nav-links { display: flex; gap: 14px; font-size: 10px; color: #4b5563; }
+  .c-nav-links span { color: #a855f7; }
+  .c-card {
+    background: #1f2937; border-radius: 10px; padding: 10px 12px;
+    margin-bottom: 8px; border: 1px solid #374151;
+  }
+  .c-title { font-size: 10px; font-weight: 600; color: #f9fafb; margin-bottom: 3px; }
+  .c-sub { font-size: 9px; color: #6b7280; }
+  .c-badge { display: inline-block; font-size: 8px; padding: 2px 8px; border-radius: 10px; }
+  .c-done { background: rgba(74,222,128,0.1); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
+  .c-run { background: rgba(168,85,247,0.1); color: #a855f7; border: 1px solid rgba(168,85,247,0.3); }
+  .c-wait { background: rgba(255,255,255,0.04); color: #4b5563; border: 1px solid #374151; }
+  .c-btn { background: #a855f7; color: #fff; font-size: 9px; padding: 5px 14px; border-radius: 6px; display: inline-block; margin-top: 6px; }
+  .c-progress { height: 4px; background: #374151; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .c-progress-fill { height: 100%; background: linear-gradient(90deg,#a855f7,#ec4899); width: 65%; border-radius: 2px; }
+  .c-nodes { display: flex; gap: 6px; margin-top: 8px; }
+  .c-node { flex: 1; background: #1f2937; border: 1px solid; border-radius: 6px; padding: 5px; font-size: 8px; text-align: center; }
+  .c-node.done { border-color: #4ade80; color: #4ade80; }
+  .c-node.run { border-color: #a855f7; color: #a855f7; }
+  .c-node.wait { border-color: #374151; color: #4b5563; }
+
+  .rec-tag { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.4); color: #818cf8; font-size: 10px; padding: 2px 10px; border-radius: 20px; margin-left: 8px; }
+
+  .select-hint { text-align: center; color: #475569; font-size: 12px; margin-top: 24px; }
+</style>
+<script>
+function pick(el) {
+  document.querySelectorAll('.style-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  const choice = el.dataset.choice;
+  if (window.__SP_RECORD) window.__SP_RECORD({ type:'click', choice, text: el.querySelector('.card-label').textContent.trim() });
+}
+</script>
+</head>
+<body>
+
+<h2>选择前端视觉风格</h2>
+<p class="subtitle">这将决定整体配色、组件样式和视觉基调。每种风格展示了仪表盘+进度看板的真实效果。</p>
+
+<div class="cards">
+
+  <!-- 风格 A -->
+  <div class="style-card" data-choice="a" onclick="pick(this)">
+    <div class="badge">已选择</div>
+    <div class="preview-a">
+      <div class="a-nav">
+        <div class="a-logo">⚡ PatentSearch</div>
+        <div class="a-nav-links">
+          <span>任务</span><span>报告</span><span>设置</span>
+        </div>
+      </div>
+      <div class="a-grid">
+        <div class="a-card">
+          <div class="a-stat">进行中任务</div>
+          <div class="a-val">3</div>
+          <div class="a-progress"><div class="a-progress-fill"></div></div>
+        </div>
+        <div class="a-card">
+          <div class="a-stat">已完成报告</div>
+          <div class="a-val">12</div>
+          <div style="margin-top:6px;">
+            <div class="a-tag">本月</div>
+          </div>
+        </div>
+      </div>
+      <div class="a-nodes">
+        <div class="a-node done">秘塔AI<br/>追踪<br/>✓</div>
+        <div class="a-node run">Kimi<br/>构思<br/>⏳</div>
+        <div class="a-node wait">Kimi<br/>追踪<br/>…</div>
+        <div class="a-node wait">汇总<br/>报告<br/>…</div>
+      </div>
+      <div class="a-btn">查看报告 →</div>
+    </div>
+    <div class="card-label">
+      A · 深邃科技蓝
+    </div>
+    <div class="card-desc">深色背景 + 渐变蓝/靛蓝主色，科技感强，长时间使用眼部压力小。适合习惯深色主题的用户。</div>
+  </div>
+
+  <!-- 风格 B -->
+  <div class="style-card" data-choice="b" onclick="pick(this)">
+    <div class="badge">已选择</div>
+    <div class="preview-b">
+      <div class="b-nav">
+        <div class="b-logo">PatentSearch AI</div>
+        <div class="b-nav-links">
+          <span>任务</span><span>报告</span><span>设置</span>
+        </div>
+      </div>
+      <div class="b-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="b-title">CN202410001234.7 图像处理方法</div>
+            <div class="b-sub">秘塔AI · 追踪检索 · 发明构思检索</div>
+          </div>
+          <div class="b-badge b-done">✓ 完成</div>
+        </div>
+        <div class="b-progress"><div class="b-progress-fill"></div></div>
+      </div>
+      <div class="b-card" style="border-left-color:#f59e0b;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="b-title">CN202410005678.2 数据传输装置</div>
+            <div class="b-sub">Kimi K2.5 · 2/4 子任务完成</div>
+          </div>
+          <div class="b-badge b-run">进行中</div>
+        </div>
+        <div class="b-progress"><div class="b-progress-fill" style="width:50%;background:#f59e0b;"></div></div>
+      </div>
+      <div class="b-btn">+ 新建检索</div>
+    </div>
+    <div class="card-label">
+      B · 清爽专业白 <span class="rec-tag">推荐</span>
+    </div>
+    <div class="card-desc">浅色背景 + 蓝色主色，简洁正式，符合政务/专业工具审美，打印/截图效果好，上手门槛低。</div>
+  </div>
+
+  <!-- 风格 C -->
+  <div class="style-card" data-choice="c" onclick="pick(this)">
+    <div class="badge">已选择</div>
+    <div class="preview-c">
+      <div class="c-nav">
+        <div class="c-logo"><span class="c-dot"></span>PatentSearch</div>
+        <div class="c-nav-links">
+          <span>任务</span><span>报告</span><span>设置</span>
+        </div>
+      </div>
+      <div class="c-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="c-title">CN202410001234.7 图像处理方法</div>
+            <div class="c-sub">秘塔AI · 追踪检索</div>
+          </div>
+          <div class="c-badge c-done">✓ 完成</div>
+        </div>
+        <div class="c-progress"><div class="c-progress-fill"></div></div>
+      </div>
+      <div class="c-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="c-title">CN202410005678.2 数据传输装置</div>
+            <div class="c-sub">Kimi K2.5 · 发明构思检索</div>
+          </div>
+          <div class="c-badge c-run">⏳ 运行中</div>
+        </div>
+        <div class="c-nodes">
+          <div class="c-node done">秘塔<br/>追踪</div>
+          <div class="c-node run">Kimi<br/>构思</div>
+          <div class="c-node wait">Kimi<br/>追踪</div>
+        </div>
+      </div>
+      <div class="c-btn">查看报告 →</div>
+    </div>
+    <div class="card-label">
+      C · 磨砂深灰紫
+    </div>
+    <div class="card-desc">深灰底色 + 紫色/玫红点缀，比A更内敛优雅，现代感强，介于科技感与商务感之间。</div>
+  </div>
+
+</div>
+
+<p class="select-hint" style="margin-top:24px;">点击任意风格卡片选择，或在终端告诉我你的偏好。也可以告诉我想组合某两种风格的元素。</p>
+
+</body>
+</html>

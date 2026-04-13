@@ -1,0 +1,119 @@
+<h2>专利检索智能体 — 系统架构总览</h2>
+<p class="subtitle">评估整体架构可行性，确认各模块边界</p>
+
+<div class="section">
+  <div style="background:#0f172a;border-radius:12px;padding:24px;font-family:monospace;font-size:13px;line-height:1.8;color:#e2e8f0;">
+
+    <!-- 层级架构图 -->
+    <div style="display:grid;grid-template-columns:1fr;gap:16px;">
+
+      <!-- 用户层 -->
+      <div style="background:#1e3a5f;border:1px solid #3b82f6;border-radius:8px;padding:16px;text-align:center;">
+        <div style="color:#93c5fd;font-size:11px;letter-spacing:2px;margin-bottom:8px;">▌ 用户层</div>
+        <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;">
+          <span style="background:#1d4ed8;color:#bfdbfe;padding:6px 16px;border-radius:6px;">专利审查员（用户角色）</span>
+          <span style="background:#1d4ed8;color:#bfdbfe;padding:6px 16px;border-radius:6px;">系统管理员（Admin角色）</span>
+        </div>
+      </div>
+
+      <!-- 箭头 -->
+      <div style="text-align:center;color:#64748b;font-size:18px;">↕ HTTPS</div>
+
+      <!-- 前端层 -->
+      <div style="background:#1a2e1a;border:1px solid #22c55e;border-radius:8px;padding:16px;">
+        <div style="color:#86efac;font-size:11px;letter-spacing:2px;margin-bottom:10px;">▌ 前端层（React / Next.js）</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <span style="background:#14532d;color:#bbf7d0;padding:4px 12px;border-radius:4px;font-size:12px;">① 专利文件上传</span>
+          <span style="background:#14532d;color:#bbf7d0;padding:4px 12px;border-radius:4px;font-size:12px;">② 解析结果展示</span>
+          <span style="background:#14532d;color:#bbf7d0;padding:4px 12px;border-radius:4px;font-size:12px;">③ 检索策略配置</span>
+          <span style="background:#14532d;color:#bbf7d0;padding:4px 12px;border-radius:4px;font-size:12px;">④ 实时进度看板</span>
+          <span style="background:#14532d;color:#bbf7d0;padding:4px 12px;border-radius:4px;font-size:12px;">⑤ 检索报告查看</span>
+          <span style="background:#14532d;color:#bbf7d0;padding:4px 12px;border-radius:4px;font-size:12px;">⑥ 导出（Word/MD/XLSX）</span>
+        </div>
+      </div>
+
+      <!-- 箭头 -->
+      <div style="text-align:center;color:#64748b;font-size:18px;">↕ REST / WebSocket</div>
+
+      <!-- 后端 API 层 -->
+      <div style="background:#2d1b3d;border:1px solid #a855f7;border-radius:8px;padding:16px;">
+        <div style="color:#d8b4fe;font-size:11px;letter-spacing:2px;margin-bottom:10px;">▌ 后端 API 层（Supabase Edge Functions / Node.js）</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div style="background:#3b0764;border-radius:6px;padding:10px;">
+            <div style="color:#e879f9;font-size:11px;margin-bottom:6px;">Step 1 · 文献解析</div>
+            <div style="color:#f0abfc;font-size:11px;">调用选定大模型<br/>提取6项关键信息</div>
+          </div>
+          <div style="background:#3b0764;border-radius:6px;padding:10px;">
+            <div style="color:#e879f9;font-size:11px;margin-bottom:6px;">Step 2 · 并行检索</div>
+            <div style="color:#f0abfc;font-size:11px;">M平台 × N策略<br/>并发子Agent调度</div>
+          </div>
+          <div style="background:#3b0764;border-radius:6px;padding:10px;">
+            <div style="color:#e879f9;font-size:11px;margin-bottom:6px;">Step 3 · 报告生成</div>
+            <div style="color:#f0abfc;font-size:11px;">去重排序筛选<br/>输出Top10文献</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 双箭头分叉 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:center;color:#64748b;">
+        <div>↕ Supabase SDK</div>
+        <div>↕ HTTP / SSE</div>
+      </div>
+
+      <!-- 底层：Supabase + 外部AI -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+        <!-- Supabase -->
+        <div style="background:#1a2530;border:1px solid #0ea5e9;border-radius:8px;padding:16px;">
+          <div style="color:#7dd3fc;font-size:11px;letter-spacing:2px;margin-bottom:10px;">▌ Supabase（数据层）</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <span style="background:#0c4a6e;color:#bae6fd;padding:4px 10px;border-radius:4px;font-size:11px;">Auth — 注册/登录/角色管理</span>
+            <span style="background:#0c4a6e;color:#bae6fd;padding:4px 10px;border-radius:4px;font-size:11px;">PostgreSQL — 用户/任务/报告数据</span>
+            <span style="background:#0c4a6e;color:#bae6fd;padding:4px 10px;border-radius:4px;font-size:11px;">Storage — 上传的专利PDF文件</span>
+            <span style="background:#0c4a6e;color:#bae6fd;padding:4px 10px;border-radius:4px;font-size:11px;">RLS — 用户数据隔离权限控制</span>
+          </div>
+        </div>
+
+        <!-- 外部AI平台 -->
+        <div style="background:#2a1a0e;border:1px solid #f97316;border-radius:8px;padding:16px;">
+          <div style="color:#fdba74;font-size:11px;letter-spacing:2px;margin-bottom:10px;">▌ 外部 AI API（检索平台）</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <span style="background:#7c2d12;color:#fed7aa;padding:4px 10px;border-radius:4px;font-size:11px;">秘塔AI（联网检索）</span>
+            <span style="background:#7c2d12;color:#fed7aa;padding:4px 10px;border-radius:4px;font-size:11px;">Kimi K2.5（Moonshot API）</span>
+            <span style="background:#7c2d12;color:#fed7aa;padding:4px 10px;border-radius:4px;font-size:11px;">智谱GLM-5.1（ZhipuAI API）</span>
+            <span style="background:#7c2d12;color:#fed7aa;padding:4px 10px;border-radius:4px;font-size:11px;">自定义模型接入（可扩展）</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 可行性总评 -->
+      <div style="background:#1c2a1c;border:2px solid #4ade80;border-radius:8px;padding:16px;">
+        <div style="color:#4ade80;font-size:12px;letter-spacing:2px;margin-bottom:10px;">▌ 可行性初步评估</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <div style="color:#86efac;font-size:11px;margin-bottom:6px;">✅ 技术上可行</div>
+            <ul style="color:#bbf7d0;font-size:11px;margin:0;padding-left:16px;line-height:1.8;">
+              <li>国内主流AI平台均有开放API</li>
+              <li>Supabase提供完整Auth+DB方案</li>
+              <li>并行请求可通过Promise.all实现</li>
+              <li>PDF解析+多格式导出库成熟</li>
+            </ul>
+          </div>
+          <div>
+            <div style="color:#fbbf24;font-size:11px;margin-bottom:6px;">⚠️ 需要重点关注</div>
+            <ul style="color:#fde68a;font-size:11px;margin:0;padding-left:16px;line-height:1.8;">
+              <li>秘塔AI是否有正式开放API？</li>
+              <li>各平台API速率限制与计费</li>
+              <li>长时检索任务的超时处理</li>
+              <li>专利PDF解析质量（复杂排版）</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="text-align:center;margin-top:16px;">查看架构图后，请在终端告诉我你的想法，我们将逐步深入每个模块的细节。</p>

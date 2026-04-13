@@ -1,0 +1,95 @@
+<h2>数据库设计修订（基于新约束）</h2>
+<p class="subtitle">两处变更：① ai_models 表增加能力标签字段 · ② reports.selected_docs 补充来源溯源字段</p>
+
+<div class="section">
+  <h3>变更 1 — ai_models 表：新增 capabilities 字段</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+    <div style="background:#1e293b;border-radius:8px;overflow:hidden;">
+      <div style="background:#7c3aed;padding:8px 12px;font-weight:bold;color:#fff;font-size:12px;">② ai_models（修订版）</div>
+      <div style="padding:10px 12px;font-family:monospace;color:#cbd5e1;line-height:2;font-size:11px;">
+        <div><span style="color:#c4b5fd;">id, name, api_base_url ...</span> <span style="color:#64748b;">（同前）</span></div>
+        <div style="background:#3b0764;padding:4px 8px;border-radius:4px;margin:4px 0;">
+          <span style="color:#e879f9;">capabilities</span> <span style="color:#64748b;">jsonb</span>
+          <div style="color:#f0abfc;padding-left:12px;font-size:10px;">
+            &#123;<br/>
+            &nbsp;&nbsp;"deep_reasoning": true/false,<br/>
+            &nbsp;&nbsp;"web_search": true/false<br/>
+            &#125;
+          </div>
+        </div>
+        <div><span style="color:#c4b5fd;">usage_type</span> <span style="color:#64748b;">enum('parse','search','report')</span></div>
+        <div><span style="color:#c4b5fd;">is_builtin</span> <span style="color:#64748b;">boolean</span></div>
+      </div>
+    </div>
+
+    <div style="background:#1e293b;border-radius:8px;padding:14px;font-size:11px;">
+      <div style="color:#fbbf24;font-weight:bold;margin-bottom:10px;">⚙️ 能力要求规则（前端校验 + 后端强制）</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="background:#1c1917;border-left:3px solid #f97316;padding:8px 10px;border-radius:0 6px 6px 0;">
+          <div style="color:#fb923c;font-size:10px;margin-bottom:4px;">解析用模型（parse）</div>
+          <div style="color:#fed7aa;">必须：<code style="color:#e2e8f0;">deep_reasoning: true</code></div>
+          <div style="color:#64748b;font-size:10px;">联网不作要求</div>
+        </div>
+        <div style="background:#0f2027;border-left:3px solid #06b6d4;padding:8px 10px;border-radius:0 6px 6px 0;">
+          <div style="color:#22d3ee;font-size:10px;margin-bottom:4px;">检索用模型（search）</div>
+          <div style="color:#a5f3fc;">必须：<code style="color:#e2e8f0;">deep_reasoning: true</code> + <code style="color:#e2e8f0;">web_search: true</code></div>
+          <div style="color:#64748b;font-size:10px;">两项缺一不可</div>
+        </div>
+        <div style="background:#1c1917;border-left:3px solid #a855f7;padding:8px 10px;border-radius:0 6px 6px 0;">
+          <div style="color:#d8b4fe;font-size:10px;margin-bottom:4px;">报告汇总用模型（report）</div>
+          <div style="color:#e9d5ff;">必须：<code style="color:#e2e8f0;">deep_reasoning: true</code></div>
+          <div style="color:#64748b;font-size:10px;">联网不作要求</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;color:#94a3b8;font-size:10px;line-height:1.7;">
+        用户自定义接入模型时，UI 提供能力勾选框；<br/>
+        选择模型时，不符合要求的自动灰显 + 提示原因。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>变更 2 — reports.selected_docs：每篇文献增加来源溯源字段</h3>
+  <div style="background:#1e293b;border-radius:8px;padding:14px;font-size:11px;font-family:monospace;">
+    <div style="color:#94a3b8;margin-bottom:8px;">selected_docs: jsonb 数组，每个元素结构：</div>
+    <div style="background:#0f172a;padding:12px;border-radius:6px;color:#e2e8f0;line-height:2;">
+      &#123;<br/>
+      &nbsp;&nbsp;<span style="color:#7dd3fc;">"rank"</span>: 1,<br/>
+      &nbsp;&nbsp;<span style="color:#7dd3fc;">"title"</span>: "文献标题",<br/>
+      &nbsp;&nbsp;<span style="color:#7dd3fc;">"authors"</span>: "作者列表",<br/>
+      &nbsp;&nbsp;<span style="color:#7dd3fc;">"url"</span>: "出处链接",<br/>
+      &nbsp;&nbsp;<span style="color:#7dd3fc;">"pub_date"</span>: "公开时间",<br/>
+      &nbsp;&nbsp;<span style="color:#7dd3fc;">"relevance_desc"</span>: "相关特征描述",<br/>
+      &nbsp;&nbsp;<span style="color:#7dd3fc;">"citation_gb"</span>: "中国国标引文格式",<br/>
+      <span style="background:#1e3a5f;display:block;padding:2px 0;">
+      &nbsp;&nbsp;<span style="color:#38bdf8;">"source_platform"</span>: "秘塔AI",&nbsp;&nbsp;<span style="color:#64748b;">// 检索到此文献的平台名称</span><br/>
+      &nbsp;&nbsp;<span style="color:#38bdf8;">"source_strategy"</span>: "发明构思检索",&nbsp;&nbsp;<span style="color:#64748b;">// 所用检索策略名称</span><br/>
+      &nbsp;&nbsp;<span style="color:#38bdf8;">"source_task_id"</span>: "uuid"&nbsp;&nbsp;<span style="color:#64748b;">// 关联 search_tasks 记录</span>
+      </span>
+      &#125;
+    </div>
+    <div style="margin-top:10px;color:#94a3b8;">
+      报告输出示例：<span style="color:#fbbf24;">【来源：秘塔AI · 发明构思检索】</span> 标注在每篇文献标题下方
+    </div>
+  </div>
+</div>
+
+<div style="background:#1e293b;border-radius:8px;padding:14px;margin-top:12px;font-size:11px;">
+  <div style="color:#4ade80;font-weight:bold;margin-bottom:8px;">📋 修订摘要</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;color:#cbd5e1;line-height:1.8;">
+    <div>
+      <div>✅ ai_models 新增 <code>capabilities jsonb</code></div>
+      <div>✅ 三种用途的能力要求规则明确</div>
+      <div>✅ 自定义接入时引导用户勾选能力标签</div>
+    </div>
+    <div>
+      <div>✅ selected_docs 每条增加来源平台/策略/task_id</div>
+      <div>✅ 报告正文中每篇文献显示【来源：平台·策略】</div>
+      <div>✅ path_summary 仍记录整体路径执行情况</div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="text-align:center;margin-top:16px;">数据库设计修订已完整。确认后进入第 3 节（前端页面流程与 UI 结构）。</p>

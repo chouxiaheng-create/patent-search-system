@@ -1,0 +1,135 @@
+<h2>设计节 2 / 5 — 数据库设计（Supabase PostgreSQL）</h2>
+<p class="subtitle">7 张核心表 · RLS 行级权限隔离 · Realtime 订阅驱动动态看板</p>
+
+<div class="section">
+  <h3>表结构与关系</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:11px;">
+
+    <!-- profiles -->
+    <div style="background:#1e293b;border-radius:8px;overflow:hidden;">
+      <div style="background:#1d4ed8;padding:8px 12px;font-weight:bold;color:#fff;font-size:12px;">① profiles（用户档案）</div>
+      <div style="padding:10px 12px;font-family:monospace;color:#cbd5e1;line-height:1.9;">
+        <div><span style="color:#7dd3fc;">id</span> <span style="color:#64748b;">uuid FK → auth.users</span></div>
+        <div><span style="color:#7dd3fc;">role</span> <span style="color:#64748b;">enum('admin','user')</span></div>
+        <div><span style="color:#7dd3fc;">display_name</span> <span style="color:#64748b;">text</span></div>
+        <div><span style="color:#7dd3fc;">created_at</span> <span style="color:#64748b;">timestamptz</span></div>
+      </div>
+      <div style="padding:4px 12px 8px;color:#94a3b8;font-size:10px;">Supabase Auth 触发器自动创建</div>
+    </div>
+
+    <!-- ai_models -->
+    <div style="background:#1e293b;border-radius:8px;overflow:hidden;">
+      <div style="background:#7c3aed;padding:8px 12px;font-weight:bold;color:#fff;font-size:12px;">② ai_models（AI 模型库）</div>
+      <div style="padding:10px 12px;font-family:monospace;color:#cbd5e1;line-height:1.9;">
+        <div><span style="color:#c4b5fd;">id</span> <span style="color:#64748b;">uuid PK</span></div>
+        <div><span style="color:#c4b5fd;">owner_id</span> <span style="color:#64748b;">uuid nullable → auth.users</span></div>
+        <div><span style="color:#c4b5fd;">name</span> <span style="color:#64748b;">text（如"Kimi K2.5"）</span></div>
+        <div><span style="color:#c4b5fd;">api_base_url</span> <span style="color:#64748b;">text</span></div>
+        <div><span style="color:#c4b5fd;">api_key_encrypted</span> <span style="color:#64748b;">text</span></div>
+        <div><span style="color:#c4b5fd;">model_id</span> <span style="color:#64748b;">text</span></div>
+        <div><span style="color:#c4b5fd;">is_builtin</span> <span style="color:#64748b;">boolean</span></div>
+        <div><span style="color:#c4b5fd;">usage_type</span> <span style="color:#64748b;">enum('parse','search','report')</span></div>
+      </div>
+      <div style="padding:4px 12px 8px;color:#94a3b8;font-size:10px;">owner_id=null 为系统内置；用户可添加私有模型</div>
+    </div>
+
+    <!-- search_strategies -->
+    <div style="background:#1e293b;border-radius:8px;overflow:hidden;">
+      <div style="background:#0f766e;padding:8px 12px;font-weight:bold;color:#fff;font-size:12px;">③ search_strategies（检索策略）</div>
+      <div style="padding:10px 12px;font-family:monospace;color:#cbd5e1;line-height:1.9;">
+        <div><span style="color:#99f6e4;">id</span> <span style="color:#64748b;">uuid PK</span></div>
+        <div><span style="color:#99f6e4;">owner_id</span> <span style="color:#64748b;">uuid nullable → auth.users</span></div>
+        <div><span style="color:#99f6e4;">name</span> <span style="color:#64748b;">text（如"追踪检索"）</span></div>
+        <div><span style="color:#99f6e4;">prompt_template</span> <span style="color:#64748b;">text（含 {{占位符}}）</span></div>
+        <div><span style="color:#99f6e4;">is_builtin</span> <span style="color:#64748b;">boolean</span></div>
+        <div><span style="color:#99f6e4;">created_at</span> <span style="color:#64748b;">timestamptz</span></div>
+      </div>
+      <div style="padding:4px 12px 8px;color:#94a3b8;font-size:10px;">内置3种 + 用户自定义；提示词模板支持修改</div>
+    </div>
+
+    <!-- patent_documents -->
+    <div style="background:#1e293b;border-radius:8px;overflow:hidden;">
+      <div style="background:#b45309;padding:8px 12px;font-weight:bold;color:#fff;font-size:12px;">④ patent_documents（专利文献）</div>
+      <div style="padding:10px 12px;font-family:monospace;color:#cbd5e1;line-height:1.9;">
+        <div><span style="color:#fcd34d;">id</span> <span style="color:#64748b;">uuid PK</span></div>
+        <div><span style="color:#fcd34d;">user_id</span> <span style="color:#64748b;">uuid → auth.users</span></div>
+        <div><span style="color:#fcd34d;">file_url</span> <span style="color:#64748b;">text（Supabase Storage）</span></div>
+        <div><span style="color:#fcd34d;">file_type</span> <span style="color:#64748b;">enum('pdf','docx','xlsx','txt')</span></div>
+        <div><span style="color:#fcd34d;">parse_status</span> <span style="color:#64748b;">enum(pending/parsing/done/needs_review/failed)</span></div>
+        <div><span style="color:#fcd34d;">parsed_data</span> <span style="color:#64748b;">jsonb（6项字段+自定义扩展）</span></div>
+        <div><span style="color:#fcd34d;">quality_warning</span> <span style="color:#64748b;">boolean（复杂排版预警）</span></div>
+        <div><span style="color:#fcd34d;">user_notes</span> <span style="color:#64748b;">text（手动补充/澄清）</span></div>
+      </div>
+    </div>
+
+    <!-- search_jobs -->
+    <div style="background:#1e293b;border-radius:8px;overflow:hidden;">
+      <div style="background:#0e7490;padding:8px 12px;font-weight:bold;color:#fff;font-size:12px;">⑤ search_jobs（检索任务主表）</div>
+      <div style="padding:10px 12px;font-family:monospace;color:#cbd5e1;line-height:1.9;">
+        <div><span style="color:#67e8f9;">id</span> <span style="color:#64748b;">uuid PK</span></div>
+        <div><span style="color:#67e8f9;">user_id</span> <span style="color:#64748b;">uuid → auth.users</span></div>
+        <div><span style="color:#67e8f9;">document_id</span> <span style="color:#64748b;">uuid → patent_documents</span></div>
+        <div><span style="color:#67e8f9;">status</span> <span style="color:#64748b;">enum(queued/running/completed/failed)</span></div>
+        <div><span style="color:#67e8f9;">queue_position</span> <span style="color:#64748b;">integer（排队位置）</span></div>
+        <div><span style="color:#67e8f9;">scheduled_at</span> <span style="color:#64748b;">timestamptz nullable（定时预约）</span></div>
+        <div><span style="color:#67e8f9;">config</span> <span style="color:#64748b;">jsonb（平台列表/策略列表/结果数量配置）</span></div>
+        <div><span style="color:#67e8f9;">started_at / completed_at</span> <span style="color:#64748b;">timestamptz</span></div>
+      </div>
+      <div style="padding:4px 12px 8px;color:#94a3b8;font-size:10px;">Realtime 订阅此表驱动进度看板</div>
+    </div>
+
+    <!-- search_tasks -->
+    <div style="background:#1e293b;border-radius:8px;overflow:hidden;">
+      <div style="background:#15803d;padding:8px 12px;font-weight:bold;color:#fff;font-size:12px;">⑥ search_tasks（子任务明细）</div>
+      <div style="padding:10px 12px;font-family:monospace;color:#cbd5e1;line-height:1.9;">
+        <div><span style="color:#86efac;">id</span> <span style="color:#64748b;">uuid PK</span></div>
+        <div><span style="color:#86efac;">job_id</span> <span style="color:#64748b;">uuid → search_jobs</span></div>
+        <div><span style="color:#86efac;">model_id</span> <span style="color:#64748b;">uuid → ai_models（检索平台）</span></div>
+        <div><span style="color:#86efac;">strategy_id</span> <span style="color:#64748b;">uuid → search_strategies</span></div>
+        <div><span style="color:#86efac;">status</span> <span style="color:#64748b;">enum(pending/running/retrying/done/abandoned)</span></div>
+        <div><span style="color:#86efac;">retry_count</span> <span style="color:#64748b;">integer（最多1次重试）</span></div>
+        <div><span style="color:#86efac;">results</span> <span style="color:#64748b;">jsonb（Top-N 文献列表）</span></div>
+        <div><span style="color:#86efac;">error_msg</span> <span style="color:#64748b;">text nullable</span></div>
+      </div>
+      <div style="padding:4px 12px 8px;color:#94a3b8;font-size:10px;">每个节点对应动态看板中的一个流程节点</div>
+    </div>
+
+  </div>
+
+  <!-- reports 单独一行 -->
+  <div style="background:#1e293b;border-radius:8px;overflow:hidden;margin-top:12px;">
+    <div style="background:#9f1239;padding:8px 12px;font-weight:bold;color:#fff;font-size:12px;">⑦ reports（检索报告）</div>
+    <div style="padding:10px 12px;font-family:monospace;color:#cbd5e1;line-height:1.9;display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <div><span style="color:#fda4af;">id</span> <span style="color:#64748b;">uuid PK</span></div>
+        <div><span style="color:#fda4af;">job_id</span> <span style="color:#64748b;">uuid → search_jobs</span></div>
+        <div><span style="color:#fda4af;">user_id</span> <span style="color:#64748b;">uuid → auth.users</span></div>
+        <div><span style="color:#fda4af;">html_content</span> <span style="color:#64748b;">text（完整 HTML 报告）</span></div>
+      </div>
+      <div>
+        <div><span style="color:#fda4af;">selected_docs</span> <span style="color:#64748b;">jsonb（Top-N 文献+元数据）</span></div>
+        <div><span style="color:#fda4af;">doc_count</span> <span style="color:#64748b;">integer（实际输出数量）</span></div>
+        <div><span style="color:#fda4af;">path_summary</span> <span style="color:#64748b;">jsonb（各路径执行情况摘要）</span></div>
+        <div><span style="color:#fda4af;">created_at</span> <span style="color:#64748b;">timestamptz</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="background:#1e293b;border-radius:8px;padding:14px;margin-top:12px;font-size:11px;">
+  <div style="color:#fbbf24;font-weight:bold;margin-bottom:8px;">🔐 RLS 行级安全策略</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;color:#cbd5e1;line-height:1.8;">
+    <div>
+      <div style="color:#94a3b8;margin-bottom:4px;">User 角色</div>
+      <div>SELECT/INSERT/UPDATE/DELETE</div>
+      <div>→ 仅限 user_id = auth.uid() 的行</div>
+    </div>
+    <div>
+      <div style="color:#94a3b8;margin-bottom:4px;">Admin 角色</div>
+      <div>SELECT/UPDATE/DELETE</div>
+      <div>→ 所有用户的数据（通过 profiles.role 判断）</div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="text-align:center;margin-top:16px;">这是第 2 节：数据库设计。确认后进入第 3 节（前端页面流程）。</p>

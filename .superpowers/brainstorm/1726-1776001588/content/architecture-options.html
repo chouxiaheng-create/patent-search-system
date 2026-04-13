@@ -1,0 +1,128 @@
+<h2>三种架构方案对比</h2>
+<p class="subtitle">核心约束：10分钟长任务 + 10–50 并发用户 + 公网 SaaS + Supabase 生态</p>
+
+<div class="options">
+
+  <!-- 方案 A -->
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Next.js + Supabase 全栈（推荐）</h3>
+      <p style="font-size:12px;color:#94a3b8;margin:4px 0 10px;">前端 Vercel · 后台 Worker 独立部署 · pg-boss 任务队列 · Supabase Realtime 进度推送</p>
+
+      <div style="background:#0f172a;border-radius:6px;padding:12px;font-size:11px;font-family:monospace;line-height:2;color:#e2e8f0;">
+        <span style="color:#38bdf8;">浏览器</span>
+        → <span style="color:#4ade80;">Next.js (Vercel)</span>
+        → <span style="color:#a78bfa;">Supabase DB + pg-boss 任务队列</span>
+        → <span style="color:#fb923c;">Worker 服务 (Railway/Fly.io)</span>
+        → <span style="color:#f472b6;">外部 AI API × N</span>
+        <br/>
+        <span style="color:#64748b;">实时进度：</span>
+        <span style="color:#4ade80;">Supabase Realtime</span>
+        <span style="color:#64748b;">订阅任务状态表 → 动态工作流 UI 更新</span>
+      </div>
+
+      <div class="pros-cons" style="margin-top:10px;">
+        <div class="pros">
+          <h4>优势</h4>
+          <ul>
+            <li>Supabase 生态高度整合（Auth/DB/Storage/Realtime 一体）</li>
+            <li>pg-boss 直接跑在 PostgreSQL 内，无需额外 Redis</li>
+            <li>Worker 无执行时长限制，天然支持10分钟任务</li>
+            <li>Next.js + Vercel 部署简单，前端开发体验好</li>
+            <li>Supabase Realtime 天然支持动态工作流进度推送</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>权衡</h4>
+          <ul>
+            <li>Worker 需单独部署一个服务（Railway 约 $5/月）</li>
+            <li>首次搭建比纯 Edge Functions 方案稍复杂</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 方案 B -->
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Next.js + Supabase Edge Functions（纯 Serverless）</h3>
+      <p style="font-size:12px;color:#94a3b8;margin:4px 0 10px;">前端 Vercel · Edge Functions 编排 · 无独立 Worker</p>
+
+      <div style="background:#0f172a;border-radius:6px;padding:12px;font-size:11px;font-family:monospace;line-height:2;color:#e2e8f0;">
+        <span style="color:#38bdf8;">浏览器</span>
+        → <span style="color:#4ade80;">Next.js</span>
+        → <span style="color:#a78bfa;">Supabase Edge Functions（编排）</span>
+        → <span style="color:#f472b6;">外部 AI API × N（并发）</span>
+        <br/>
+        <span style="color:#64748b;">⚠️ Edge Functions 最长执行时间：</span>
+        <span style="color:#f87171;">150 秒（2.5 分钟）</span>
+      </div>
+
+      <div class="pros-cons" style="margin-top:10px;">
+        <div class="pros">
+          <h4>优势</h4>
+          <ul>
+            <li>完全 Serverless，无需维护 Worker 服务</li>
+            <li>部署极简，成本最低</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>硬限制</h4>
+          <ul>
+            <li>❌ Edge Functions 最长 150s，无法支持 10 分钟任务</li>
+            <li>需要切分任务+轮询，架构变复杂且不可靠</li>
+            <li>不推荐用于本系统</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 方案 C -->
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Next.js + 独立 Express 后端 + BullMQ（Redis）</h3>
+      <p style="font-size:12px;color:#94a3b8;margin:4px 0 10px;">前端 Vercel · 独立 API 服务 · Redis 任务队列 · WebSocket 实时进度</p>
+
+      <div style="background:#0f172a;border-radius:6px;padding:12px;font-size:11px;font-family:monospace;line-height:2;color:#e2e8f0;">
+        <span style="color:#38bdf8;">浏览器</span>
+        → <span style="color:#4ade80;">Next.js</span>
+        → <span style="color:#fb923c;">Express API + BullMQ Worker</span>
+        → <span style="color:#a78bfa;">Redis 队列</span>
+        → <span style="color:#f472b6;">外部 AI API × N</span>
+        <br/>
+        <span style="color:#64748b;">Supabase 仅用于：</span>Auth + 数据存储
+      </div>
+
+      <div class="pros-cons" style="margin-top:10px;">
+        <div class="pros">
+          <h4>优势</h4>
+          <ul>
+            <li>BullMQ + Redis 是业界成熟的任务队列方案</li>
+            <li>WebSocket 支持最灵活的实时通信</li>
+            <li>技术栈可控性最强</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>权衡</h4>
+          <ul>
+            <li>需额外维护 Redis 服务（增加运营成本和复杂度）</li>
+            <li>Supabase 的 Realtime 优势无法充分利用</li>
+            <li>部署和维护工作量最大</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="background:#1e293b;border-radius:8px;padding:16px;margin-top:20px;font-size:12px;color:#94a3b8;">
+  <strong style="color:#4ade80;">推荐：方案 A</strong> — 在 Supabase 生态内实现完整功能，pg-boss 解决长任务问题，Realtime 驱动动态工作流看板，Worker 单独部署解决10分钟超时限制，整体复杂度适中。
+</div>
+
+<p class="subtitle" style="text-align:center;margin-top:16px;">请在浏览器点击你倾向的方案，或在终端告诉我你的选择。</p>
