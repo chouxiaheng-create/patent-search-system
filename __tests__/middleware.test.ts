@@ -1,6 +1,7 @@
 // __tests__/middleware.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import * as supabaseSSR from '@supabase/ssr'
 
 // Mock @supabase/ssr
 vi.mock('@supabase/ssr', () => ({
@@ -11,10 +12,9 @@ const mockGetUser = vi.fn()
 
 beforeEach(() => {
   vi.resetAllMocks()
-  const { createServerClient } = require('@supabase/ssr')
-  createServerClient.mockReturnValue({
+  vi.mocked(supabaseSSR.createServerClient).mockReturnValue({
     auth: { getUser: mockGetUser },
-  })
+  } as ReturnType<typeof supabaseSSR.createServerClient>)
 })
 
 describe('middleware', () => {

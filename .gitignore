@@ -52,3 +52,4 @@ supabase/.temp
 # Worker
 worker/node_modules
 worker/.env
+worker/dist

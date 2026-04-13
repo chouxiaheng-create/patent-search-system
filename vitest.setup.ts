@@ -17,7 +17,8 @@ beforeEach(async () => {
   const resolvedPath = _require.resolve('@supabase/ssr')
   // Import the module — vitest will return the mocked version if vi.mock is active
   const mod = await import('@supabase/ssr')
-  ;(_require as any).cache[resolvedPath] = {
+  const requireCache = (_require as NodeRequire & { cache: Record<string, unknown> }).cache
+  requireCache[resolvedPath] = {
     id: resolvedPath,
     filename: resolvedPath,
     loaded: true,
