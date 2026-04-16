@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockGetUser = vi.fn()
-
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }))
 vi.mock('@/lib/supabase/admin', () => ({ createServiceClient: vi.fn() }))
 
@@ -60,6 +58,7 @@ describe('PUT /api/models/[modelId]', () => {
     expect(res.status).toBe(401)
   })
 
+  // TODO Task 9: this test will be updated when builtin model API key update is supported (403 → 200)
   it('尝试修改内置模型时返回 403', async () => {
     const { createClient } = await import('@/lib/supabase/server')
     ;(createClient as ReturnType<typeof vi.fn>).mockResolvedValue({
