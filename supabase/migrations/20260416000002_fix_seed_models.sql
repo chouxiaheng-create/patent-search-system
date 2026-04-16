@@ -36,59 +36,71 @@ UPDATE ai_models SET
 WHERE name = '秘塔AI' AND is_builtin = true;
 
 -- 新增 DeepSeek
-INSERT INTO ai_models (name, api_base_url, model_id, is_builtin, usage_types, capabilities, api_key_encrypted, adapter_config)
-VALUES (
-  'DeepSeek',
-  'https://api.deepseek.com/v1',
-  'deepseek-chat',
-  true,
-  ARRAY['search', 'parse', 'report'],
-  '{"deep_reasoning": true, "web_search": false}',
-  '',
-  '{
-    "provider": "openai_compat",
-    "web_search_method": "none",
-    "thinking_method": "model_switch",
-    "thinking_model_id": "deepseek-reasoner",
-    "web_search_disables_thinking": false,
-    "thinking_default_on": false
-  }'::jsonb
-);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM ai_models WHERE name = 'DeepSeek' AND is_builtin = true) THEN
+    INSERT INTO ai_models (name, api_base_url, model_id, is_builtin, usage_types, capabilities, api_key_encrypted, adapter_config)
+    VALUES (
+      'DeepSeek',
+      'https://api.deepseek.com/v1',
+      'deepseek-chat',
+      true,
+      ARRAY['search', 'parse', 'report'],
+      '{"deep_reasoning": true, "web_search": false}',
+      '',
+      '{
+        "provider": "openai_compat",
+        "web_search_method": "none",
+        "thinking_method": "model_switch",
+        "thinking_model_id": "deepseek-reasoner",
+        "web_search_disables_thinking": false,
+        "thinking_default_on": false
+      }'::jsonb
+    );
+  END IF;
+END $$;
 
 -- 新增 千问(Qwen)
-INSERT INTO ai_models (name, api_base_url, model_id, is_builtin, usage_types, capabilities, api_key_encrypted, adapter_config)
-VALUES (
-  '阿里千问',
-  'https://dashscope.aliyuncs.com/compatible-mode/v1',
-  'qwen3-max',
-  true,
-  ARRAY['search', 'parse', 'report'],
-  '{"deep_reasoning": true, "web_search": true}',
-  '',
-  '{
-    "provider": "openai_compat",
-    "web_search_method": "extra_body",
-    "thinking_method": "extra_body",
-    "web_search_disables_thinking": true,
-    "thinking_default_on": false
-  }'::jsonb
-);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM ai_models WHERE name = '阿里千问' AND is_builtin = true) THEN
+    INSERT INTO ai_models (name, api_base_url, model_id, is_builtin, usage_types, capabilities, api_key_encrypted, adapter_config)
+    VALUES (
+      '阿里千问',
+      'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      'qwen3-max',
+      true,
+      ARRAY['search', 'parse', 'report'],
+      '{"deep_reasoning": true, "web_search": true}',
+      '',
+      '{
+        "provider": "openai_compat",
+        "web_search_method": "extra_body",
+        "thinking_method": "extra_body",
+        "web_search_disables_thinking": true,
+        "thinking_default_on": false
+      }'::jsonb
+    );
+  END IF;
+END $$;
 
 -- 新增 MiniMax
-INSERT INTO ai_models (name, api_base_url, model_id, is_builtin, usage_types, capabilities, api_key_encrypted, adapter_config)
-VALUES (
-  'MiniMax',
-  'https://api.minimax.io/v1',
-  'MiniMax-M2',
-  true,
-  ARRAY['search', 'parse', 'report'],
-  '{"deep_reasoning": true, "web_search": true}',
-  '',
-  '{
-    "provider": "openai_compat",
-    "web_search_method": "tools_web_search",
-    "thinking_method": "extra_body",
-    "web_search_disables_thinking": false,
-    "thinking_default_on": false
-  }'::jsonb
-);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM ai_models WHERE name = 'MiniMax' AND is_builtin = true) THEN
+    INSERT INTO ai_models (name, api_base_url, model_id, is_builtin, usage_types, capabilities, api_key_encrypted, adapter_config)
+    VALUES (
+      'MiniMax',
+      'https://api.minimax.io/v1',
+      'MiniMax-M2',
+      true,
+      ARRAY['search', 'parse', 'report'],
+      '{"deep_reasoning": true, "web_search": true}',
+      '',
+      '{
+        "provider": "openai_compat",
+        "web_search_method": "tools_web_search",
+        "thinking_method": "extra_body",
+        "web_search_disables_thinking": false,
+        "thinking_default_on": false
+      }'::jsonb
+    );
+  END IF;
+END $$;
