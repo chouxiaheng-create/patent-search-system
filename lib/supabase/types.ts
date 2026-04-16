@@ -11,10 +11,27 @@ export type NotificationType =
   | 'parse_done'
   | 'parse_failed'
 
+export interface ParseConfig {
+  model_id: string
+  system_prompt: string
+}
+
+export interface UserPreferences {
+  parse_model_id: string
+  parse_system_prompt: string
+  search_model_ids: string[]
+  strategy_ids: string[]
+  per_task_limit: number
+  report_limit: number
+  report_model_id: string
+  report_system_prompt: string
+}
+
 export interface Profile {
   id: string
   role: UserRole
   display_name: string | null
+  preferences: UserPreferences | null
   created_at: string
 }
 
@@ -56,6 +73,7 @@ export interface PatentDocument {
     core_invention?: string
     custom_fields?: Record<string, string>
   } | null
+  parse_config: ParseConfig | null
   quality_warning: boolean
   user_notes: string | null
   created_at: string
