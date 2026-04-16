@@ -7,7 +7,7 @@ import { JobSummaryCard } from '@/components/wizard/job-summary-card'
 import { QueueStatusBanner } from '@/components/wizard/queue-status-banner'
 import { ScheduleToggle } from '@/components/wizard/schedule-toggle'
 import { Button } from '@/components/ui/button'
-import type { AIModel, SearchStrategy } from '@/lib/supabase/types'
+import type { AIModel, SearchStrategy, ModelFeatureOverride } from '@/lib/supabase/types'
 
 export default function Step3Page() {
   const router = useRouter()
@@ -21,6 +21,8 @@ export default function Step3Page() {
   const reportModelId = searchParams.get('reportModelId') ?? ''
   const reportSystemPrompt = searchParams.get('reportSystemPrompt') ?? ''
   const isAuto = searchParams.get('auto') === '1'
+  let featureOverrides: ModelFeatureOverride[] = []
+  try { featureOverrides = JSON.parse(searchParams.get('featureOverrides') ?? '[]') } catch { featureOverrides = [] }
 
   const [selectedModels, setSelectedModels] = useState<AIModel[]>([])
   const [selectedStrategies, setSelectedStrategies] = useState<SearchStrategy[]>([])
@@ -54,7 +56,7 @@ export default function Step3Page() {
       fetch('/api/worker-ping').catch(() => {})
       const res = await fetch('/api/jobs', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentId, config: { model_ids: modelIds, strategy_ids: strategyIds, per_task_limit: perTaskLimit, report_limit: reportLimit, report_model_id: reportModelId, report_system_prompt: reportSystemPrompt }, scheduledAt }),
+        body: JSON.stringify({ documentId, config: { model_ids: modelIds, strategy_ids: strategyIds, per_task_limit: perTaskLimit, report_limit: reportLimit, report_model_id: reportModelId, report_system_prompt: reportSystemPrompt, model_feature_overrides: featureOverrides }, scheduledAt }),
       })
       if (!res.ok) throw new Error((await res.json()).error ?? '提交失败')
       const { jobId } = await res.json()

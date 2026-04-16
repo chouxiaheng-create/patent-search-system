@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import type { AIModel, SearchStrategy, PatentDocument } from '@/lib/supabase/types'
+import type { AIModel, SearchStrategy, PatentDocument, ModelFeatureOverride } from '@/lib/supabase/types'
 
 const DEFAULT_REPORT_PROMPT = `你是专业专利检索分析师。以下是针对一件专利申请的多路检索结果，请综合评估，
 去除重复条目，按相关程度从高到低筛选最相关的文献，输出 JSON 数组，
@@ -29,6 +29,7 @@ export default function Step2Page() {
   const [reportLimit, setReportLimit] = useState(10)
   const [selectedReportModelIds, setSelectedReportModelIds] = useState<string[]>([])
   const [reportPrompt, setReportPrompt] = useState(DEFAULT_REPORT_PROMPT)
+  const [featureOverrides, setFeatureOverrides] = useState<ModelFeatureOverride[]>([])
   const [savePreferences, setSavePreferences] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [activeStrategy, setActiveStrategy] = useState<SearchStrategy | null>(null)
@@ -77,7 +78,8 @@ export default function Step2Page() {
       }) }).catch(() => {})
     }
     const p = new URLSearchParams({ documentId, modelIds: selectedSearchModelIds.join(','), strategyIds: selectedStrategyIds.join(','),
-      perTaskLimit: String(perTaskLimit), reportLimit: String(reportLimit), reportModelId: selectedReportModelIds[0] ?? '', reportSystemPrompt: reportPrompt })
+      perTaskLimit: String(perTaskLimit), reportLimit: String(reportLimit), reportModelId: selectedReportModelIds[0] ?? '', reportSystemPrompt: reportPrompt,
+      featureOverrides: JSON.stringify(featureOverrides) })
     router.push(`/search/new/step-3?${p}`)
   }
 
@@ -91,7 +93,8 @@ export default function Step2Page() {
       <div className="space-y-6">
         <section className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-slate-700">检索平台（多选）</h3>
-          <ModelSelector models={searchModels} mode="search" multiSelect selectedIds={selectedSearchModelIds} onChange={setSelectedSearchModelIds} />
+          <ModelSelector models={searchModels} mode="search" multiSelect selectedIds={selectedSearchModelIds} onChange={setSelectedSearchModelIds}
+            featureOverrides={featureOverrides} onFeatureOverridesChange={setFeatureOverrides} />
         </section>
 
         <section className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
