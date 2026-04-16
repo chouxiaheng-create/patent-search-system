@@ -1,4 +1,4 @@
-import { PgBoss } from 'pg-boss'
+import type { Job } from 'pg-boss'
 import { parseFile, FileType } from '../parsers'
 import { getModel, updateDocument, getDocumentById, downloadFile } from '../services/supabase'
 import { sendNotification } from '../services/notification'
@@ -11,7 +11,8 @@ interface ParseJobData {
   parseSystemPrompt?: string
 }
 
-export async function handleParseJob(job: PgBoss.Job<ParseJobData>): Promise<void> {
+export async function handleParseJob(jobs: Job<ParseJobData>[]): Promise<void> {
+  const job = jobs[0]
   const { documentId, parseModelId, parseSystemPrompt } = job.data
 
   console.log(`[parse-job] Starting job ${job.id}, document: ${documentId}`)

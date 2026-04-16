@@ -1,4 +1,4 @@
-import pdf from 'pdf-parse'
+import { PDFParse } from 'pdf-parse'
 
 export interface ParseResult {
   text: string
@@ -6,7 +6,8 @@ export interface ParseResult {
 }
 
 export async function parsePdf(buffer: Buffer): Promise<ParseResult> {
-  const data = await pdf(buffer)
+  const parser = new PDFParse({ data: buffer })
+  const data = await parser.getText()
   const text = data.text.trim()
   const qualityWarning = detectQualityIssues(text)
   return { text, qualityWarning }

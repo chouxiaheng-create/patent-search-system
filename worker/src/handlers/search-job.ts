@@ -1,5 +1,5 @@
 // worker/src/handlers/search-job.ts
-import { PgBoss } from 'pg-boss'
+import type { Job } from 'pg-boss'
 import { supabase, getModel, getStrategy, getJob, getDocument, updateJob, updateTaskStatus, getSearchTasks, createSearchTasks } from '../services/supabase'
 import { sendNotification } from '../services/notification'
 import { createAdapter } from '../adapters'
@@ -20,7 +20,8 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-export async function handleSearchJob(job: PgBoss.Job<SearchJobData>): Promise<void> {
+export async function handleSearchJob(jobs: Job<SearchJobData>[]): Promise<void> {
+  const job = jobs[0]
   const { jobId } = job.data
 
   console.log(`[search-job] Starting job ${job.id}, jobId: ${jobId}`)

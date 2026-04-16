@@ -1,13 +1,16 @@
 // worker/src/index.ts
 import { PgBoss } from 'pg-boss'
+import type { Job } from 'pg-boss'
 import { startHealthServer } from './health'
+import { handleParseJob } from './handlers/parse-job'
+import { handleSearchJob } from './handlers/search-job'
 
 const DATABASE_URL = process.env.DATABASE_URL!
 
 async function main() {
   console.log('[Worker] Starting...')
 
-  // 启动健康检查服务（Render 部署需要）
+  // 启动健康检查服务
   startHealthServer(Number(process.env.PORT) || 3001)
 
   const boss = new PgBoss(DATABASE_URL)
@@ -19,19 +22,9 @@ async function main() {
   await boss.start()
   console.log('[Worker] pg-boss started')
 
-  // parse-job handler（文献解析任务，Plan 3 实现）
-  await boss.work('parse-job', { localConcurrency: 1 }, async (jobs) => {
-    const job = jobs[0]
-    console.log(`[parse-job] Received job ${job.id}`)
-    // TODO: Plan 3 中实现
-  })
-
-  // search-job handler（检索任务，Plan 4 实现）
-  await boss.work('search-job', { localConcurrency: 1 }, async (jobs) => {
-    const job = jobs[0]
-    console.log(`[search-job] Received job ${job.id}`)
-    // TODO: Plan 4 中实现
-  })
+  // 注册任务处理器
+  await boss.work('parse-job', { localConcurrency: 1 }, handleParseJob as (job: Job<unknown>[]) => Promise<void>)
+  await boss.work('search-job', { localConcurrency: 1 }, handleSearchJob as (job: Job<unknown>[]) => Promise<void>)
 
   console.log('[Worker] Ready and listening for jobs')
 }

@@ -4,6 +4,8 @@ import { getSearchTasks, getPlatformNames, getStrategyNames } from './supabase'
 import { createAdapter } from '../adapters'
 import { ParsedData, SearchResult, buildSelectionPrompt, parseSelectionResult } from '../utils/prompt'
 
+type EnrichedResult = SearchResult & { source_task_id: string; source_platform: string; source_strategy: string }
+
 interface SelectedDoc {
   rank: number
   title: string
@@ -114,11 +116,22 @@ async function selectTopDocs(
   }
 
   // 获取专利信息
-  const { data: job } = await supabase.from('search_jobs').select('document_id').eq('id', jobId).single().catch(() => ({ data: null }))
-  if (!job) return results.slice(0, limit).map((r, i) => toSelectedDoc(r, i + 1))
+  let jobDocId: string | null = null
+  try {
+    const { data: job } = await supabase.from('search_jobs').select('document_id').eq('id', jobId).single()
+    if (job) jobDocId = job.document_id
+  } catch {
+    // ignore
+  }
+  if (!jobDocId) return results.slice(0, limit).map((r, i) => toSelectedDoc(r, i + 1))
 
-  const { data: doc } = await supabase.from('patent_documents').select('parsed_data').eq('id', (job as { document_id: string }).document_id).single().catch(() => ({ data: null }))
-  const parsedData = (doc?.parsed_data || {}) as ParsedData
+  let parsedData: ParsedData = {}
+  try {
+    const { data: doc } = await supabase.from('patent_documents').select('parsed_data').eq('id', jobDocId).single()
+    if (doc) parsedData = (doc.parsed_data || {}) as ParsedData
+  } catch {
+    // ignore
+  }
 
   // 调用汇总模型
   try {
@@ -128,8 +141,8 @@ async function selectTopDocs(
     const result = await adapter.call({ modelId: model.model_id, prompt, enableThinking: true, timeout: 300000 })
 
     if (result.success) {
-      const selected = parseSelectionResult(result.content!, results, limit)
-      return selected.map((r, i) => toSelectedDoc(r, i + 1))
+      const selectedResults = parseSelectionResult(result.content!, results, limit)
+      return selectedResults.map((r, i) => toSelectedDoc(r as EnrichedResult, i + 1))
     }
   } catch {
     // 筛选失败，降级

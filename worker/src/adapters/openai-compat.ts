@@ -95,7 +95,8 @@ export class OpenAICompatAdapter implements AIAdapter {
       }
     } else if (thinking_method === 'extra_body' && options.enableThinking) {
       body.extra_body = body.extra_body || {}
-      (body.extra_body as Record<string, unknown>).enable_thinking = true
+      const extraBody = body.extra_body as Record<string, unknown>
+      extraBody.enable_thinking = true
     }
 
     // 处理联网搜索
@@ -113,7 +114,8 @@ export class OpenAICompatAdapter implements AIAdapter {
         body.tools = [{ type: 'web_search' }]
       } else if (web_search_method === 'extra_body') {
         body.extra_body = body.extra_body || {}
-        (body.extra_body as Record<string, unknown>).enable_search = true
+        const extraBody = body.extra_body as Record<string, unknown>
+        extraBody.enable_search = true
       } else if (web_search_method === 'native') {
         // 搜索引擎本身支持搜索，无需额外参数
       }

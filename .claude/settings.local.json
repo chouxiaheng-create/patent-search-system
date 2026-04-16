@@ -6,7 +6,13 @@
       "Bash(supabase db *)",
       "Bash(npx shadcn@latest add switch table --yes)",
       "Bash(npx shadcn@latest add dialog --yes)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(ls worker/)",
+      "Bash(find app *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(xxd -l 256 src/adapters/openai-compat.ts)",
+      "Bash(xxd)"
     ]
   }
 }
