@@ -2,11 +2,11 @@
 'use client'
 
 import { memo } from 'react'
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { Handle, Position, type Node } from '@xyflow/react'
 import { Search, Check, X, RotateCw, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface SearchTaskNodeData {
+interface SearchTaskNodeData extends Record<string, unknown> {
   platformName: string
   strategyName: string
   status: 'pending' | 'running' | 'retrying' | 'done' | 'abandoned'
@@ -21,7 +21,7 @@ const statusConfig = {
   abandoned: { color: 'text-red-400', bg: 'bg-red-50', border: 'border-red-300', icon: X, label: '已放弃' },
 }
 
-export const SearchTaskNode = memo(function SearchTaskNode({ data }: NodeProps<SearchTaskNodeData>) {
+export const SearchTaskNode = memo(function SearchTaskNode({ data }: Node<SearchTaskNodeData>) {
   const config = statusConfig[data.status] || statusConfig.pending
   const Icon = config.icon
 

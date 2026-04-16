@@ -11,6 +11,7 @@ import {
   type Node,
   type Edge,
   MarkerType,
+  type NodeTypes,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
@@ -41,8 +42,8 @@ export function JobProgress({ jobId, userId }: JobProgressProps) {
   const [queuePosition, setQueuePosition] = useState(0)
   const [cancelling, setCancelling] = useState(false)
 
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
   // 加载初始数据
   useEffect(() => {
@@ -278,7 +279,7 @@ export function JobProgress({ jobId, userId }: JobProgressProps) {
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          nodeTypes={nodeTypes}
+          nodeTypes={nodeTypes as unknown as NodeTypes}
           fitView
           fitViewOptions={{ padding: 0.2 }}
           proOptions={{ hideAttribution: true }}

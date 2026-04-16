@@ -12,7 +12,8 @@
       "Bash(npm install *)",
       "Bash(npx tsc *)",
       "Bash(xxd -l 256 src/adapters/openai-compat.ts)",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(npm list *)"
     ]
   }
 }

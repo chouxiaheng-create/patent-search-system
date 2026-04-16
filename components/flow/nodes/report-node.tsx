@@ -2,19 +2,19 @@
 'use client'
 
 import { memo } from 'react'
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { Handle, Position, type Node } from '@xyflow/react'
 import { BarChart3, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
-interface ReportNodeData {
+interface ReportNodeData extends Record<string, unknown> {
   status: 'waiting' | 'generating' | 'done'
   jobId: string
   docCount?: number
 }
 
-export const ReportNode = memo(function ReportNode({ data }: NodeProps<ReportNodeData>) {
+export const ReportNode = memo(function ReportNode({ data }: Node<ReportNodeData>) {
   const isDone = data.status === 'done'
   const isGenerating = data.status === 'generating'
 
