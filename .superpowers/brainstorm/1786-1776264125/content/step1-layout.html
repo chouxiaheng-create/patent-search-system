@@ -1,0 +1,144 @@
+<h2>Step 1 布局方案</h2>
+<p class="subtitle">选择 /search/new/step-1 页面的整体布局风格</p>
+
+<div class="cards">
+
+  <!-- Option A: 单栏纵向流 -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border-radius:8px;padding:16px;font-size:12px;color:#334155;font-family:sans-serif;">
+        <!-- 进度条 -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;justify-content:center;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#2563eb;color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">1</div>
+            <span style="font-size:11px;color:#2563eb;font-weight:600;">上传文件</span>
+          </div>
+          <div style="width:32px;height:1px;background:#cbd5e1;align-self:center;"></div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#e2e8f0;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:11px;">2</div>
+            <span style="font-size:11px;color:#94a3b8;">配置检索</span>
+          </div>
+          <div style="width:32px;height:1px;background:#cbd5e1;align-self:center;"></div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#e2e8f0;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:11px;">3</div>
+            <span style="font-size:11px;color:#94a3b8;">确认提交</span>
+          </div>
+        </div>
+
+        <!-- 模型选择 -->
+        <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:8px;">
+          <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-weight:600;">① 选择解析模型</div>
+          <div style="display:flex;gap:6px;">
+            <div style="border:2px solid #2563eb;border-radius:4px;padding:4px 8px;font-size:10px;color:#2563eb;background:#eff6ff;">Kimi K2.5 ✓</div>
+            <div style="border:1px solid #e2e8f0;border-radius:4px;padding:4px 8px;font-size:10px;color:#64748b;">智谱GLM-5.1</div>
+          </div>
+        </div>
+
+        <!-- 上传区 -->
+        <div style="background:white;border:2px dashed #cbd5e1;border-radius:6px;padding:14px;margin-bottom:8px;text-align:center;">
+          <div style="font-size:10px;color:#64748b;margin-bottom:4px;">② 拖拽上传或点击选择文件</div>
+          <div style="font-size:9px;color:#94a3b8;">PDF / Word / Excel / TXT · 最大 20MB</div>
+          <div style="margin-top:6px;font-size:9px;color:#94a3b8;font-style:italic;">— 或 — 从历史文献复用</div>
+        </div>
+
+        <!-- 解析结果（展开后） -->
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;">
+          <div style="font-size:10px;color:#16a34a;font-weight:600;margin-bottom:6px;">③ 解析完成 · 请审查结果</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:5px;font-size:9px;">
+              <div style="color:#94a3b8;margin-bottom:2px;">技术主题</div>
+              <div style="color:#1e293b;">图像去噪处理</div>
+            </div>
+            <div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:5px;font-size:9px;">
+              <div style="color:#94a3b8;margin-bottom:2px;">申请人</div>
+              <div style="color:#1e293b;">某科技公司</div>
+            </div>
+            <div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:5px;font-size:9px;">
+              <div style="color:#94a3b8;margin-bottom:2px;">发明人</div>
+              <div style="color:#1e293b;">张三、李四</div>
+            </div>
+            <div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:5px;font-size:9px;">
+              <div style="color:#94a3b8;margin-bottom:2px;">申请日</div>
+              <div style="color:#1e293b;">2024-01-15</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · 单栏纵向流</h3>
+      <p>步骤①②③在同一列从上到下展开。布局紧凑，滚动浏览，适合步骤联动感强的场景。</p>
+    </div>
+  </div>
+
+  <!-- Option B: 左右分栏 -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border-radius:8px;padding:16px;font-size:12px;color:#334155;font-family:sans-serif;">
+        <!-- 进度条 -->
+        <div style="display:flex;gap:8px;margin-bottom:12px;justify-content:center;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#2563eb;color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">1</div>
+            <span style="font-size:11px;color:#2563eb;font-weight:600;">上传文件</span>
+          </div>
+          <div style="width:32px;height:1px;background:#cbd5e1;align-self:center;"></div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#e2e8f0;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:11px;">2</div>
+            <span style="font-size:11px;color:#94a3b8;">配置检索</span>
+          </div>
+          <div style="width:32px;height:1px;background:#cbd5e1;align-self:center;"></div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#e2e8f0;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:11px;">3</div>
+            <span style="font-size:11px;color:#94a3b8;">确认提交</span>
+          </div>
+        </div>
+
+        <!-- 两栏 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <!-- 左栏：输入 -->
+          <div>
+            <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">输入</div>
+            <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px;margin-bottom:6px;">
+              <div style="font-size:9px;color:#64748b;margin-bottom:5px;font-weight:600;">解析模型</div>
+              <div style="border:2px solid #2563eb;border-radius:4px;padding:3px 6px;font-size:9px;color:#2563eb;background:#eff6ff;display:inline-block;">Kimi K2.5 ✓</div>
+            </div>
+            <div style="background:white;border:2px dashed #cbd5e1;border-radius:6px;padding:12px;text-align:center;">
+              <div style="font-size:10px;color:#64748b;margin-bottom:3px;">拖拽上传</div>
+              <div style="font-size:9px;color:#94a3b8;">PDF / Word / Excel</div>
+              <div style="margin-top:5px;padding:2px 8px;background:#f1f5f9;border-radius:3px;font-size:9px;color:#64748b;display:inline-block;">选择文件</div>
+            </div>
+            <div style="margin-top:5px;text-align:center;font-size:9px;color:#94a3b8;">— 或从历史文献复用 —</div>
+          </div>
+
+          <!-- 右栏：解析结果 -->
+          <div>
+            <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">解析结果</div>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px;">
+              <div style="font-size:9px;color:#16a34a;font-weight:600;margin-bottom:5px;">✓ 解析完成</div>
+              <div style="display:flex;flex-direction:column;gap:3px;">
+                <div style="background:white;border:1px solid #e2e8f0;border-radius:3px;padding:4px;font-size:8px;">
+                  <span style="color:#94a3b8;">技术主题：</span><span style="color:#1e293b;">图像去噪</span>
+                </div>
+                <div style="background:white;border:1px solid #e2e8f0;border-radius:3px;padding:4px;font-size:8px;">
+                  <span style="color:#94a3b8;">申请人：</span><span style="color:#1e293b;">某科技公司</span>
+                </div>
+                <div style="background:white;border:1px solid #e2e8f0;border-radius:3px;padding:4px;font-size:8px;">
+                  <span style="color:#94a3b8;">发明人：</span><span style="color:#1e293b;">张三、李四</span>
+                </div>
+                <div style="background:white;border:1px solid #e2e8f0;border-radius:3px;padding:4px;font-size:8px;">
+                  <span style="color:#94a3b8;">申请日：</span><span style="color:#1e293b;">2024-01-15</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · 左右分栏</h3>
+      <p>左侧上传操作，右侧实时展示解析结果。两个区域并排，文件上传和结果审查同时可见，无需滚动。</p>
+    </div>
+  </div>
+
+</div>

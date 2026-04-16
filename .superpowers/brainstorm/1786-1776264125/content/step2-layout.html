@@ -1,0 +1,140 @@
+<h2>Step 2 布局方案</h2>
+<p class="subtitle">配置检索平台、策略和参数的页面布局</p>
+
+<div class="cards">
+
+  <!-- Option A: 平铺卡片 -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border-radius:8px;padding:14px;font-size:12px;color:#334155;font-family:sans-serif;">
+
+        <!-- 进度条 -->
+        <div style="display:flex;gap:8px;margin-bottom:12px;justify-content:center;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:20px;height:20px;border-radius:50%;background:#e2e8f0;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:10px;">✓</div>
+            <span style="font-size:10px;color:#94a3b8;">上传文件</span>
+          </div>
+          <div style="width:28px;height:1px;background:#2563eb;align-self:center;"></div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:20px;height:20px;border-radius:50%;background:#2563eb;color:white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">2</div>
+            <span style="font-size:10px;color:#2563eb;font-weight:600;">配置检索</span>
+          </div>
+          <div style="width:28px;height:1px;background:#cbd5e1;align-self:center;"></div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:20px;height:20px;border-radius:50%;background:#e2e8f0;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:10px;">3</div>
+            <span style="font-size:10px;color:#94a3b8;">确认提交</span>
+          </div>
+        </div>
+
+        <!-- 检索平台 -->
+        <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:8px;">
+          <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:7px;">检索平台 <span style="color:#94a3b8;font-weight:400;">（多选）</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <div style="border:2px solid #2563eb;border-radius:5px;padding:5px 9px;font-size:10px;color:#2563eb;background:#eff6ff;display:flex;align-items:center;gap:3px;">
+              <span>✓</span> 秘塔AI
+            </div>
+            <div style="border:2px solid #2563eb;border-radius:5px;padding:5px 9px;font-size:10px;color:#2563eb;background:#eff6ff;display:flex;align-items:center;gap:3px;">
+              <span>✓</span> Kimi K2.5
+            </div>
+            <div style="border:1px solid #e2e8f0;border-radius:5px;padding:5px 9px;font-size:10px;color:#64748b;">
+              智谱GLM-5.1
+            </div>
+          </div>
+        </div>
+
+        <!-- 检索策略 -->
+        <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:8px;">
+          <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:7px;">检索策略 <span style="color:#94a3b8;font-weight:400;">（多选）</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <div style="border:2px solid #2563eb;border-radius:5px;padding:5px 9px;font-size:10px;color:#2563eb;background:#eff6ff;display:flex;justify-content:space-between;align-items:center;">
+              <span>✓ 追踪检索</span>
+              <span style="color:#93c5fd;font-size:9px;">内置 · 查看提示词</span>
+            </div>
+            <div style="border:2px solid #2563eb;border-radius:5px;padding:5px 9px;font-size:10px;color:#2563eb;background:#eff6ff;display:flex;justify-content:space-between;align-items:center;">
+              <span>✓ 发明构思检索</span>
+              <span style="color:#93c5fd;font-size:9px;">内置 · 查看提示词</span>
+            </div>
+            <div style="border:1px solid #e2e8f0;border-radius:5px;padding:5px 9px;font-size:10px;color:#64748b;display:flex;justify-content:space-between;align-items:center;">
+              <span>主要技术方案步骤检索</span>
+              <span style="color:#cbd5e1;font-size:9px;">内置 · 查看提示词</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 参数 -->
+        <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:10px;">
+          <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:7px;">参数</div>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;">
+              <div style="font-size:9px;color:#94a3b8;margin-bottom:3px;">每路径备选文献数</div>
+              <div style="border:1px solid #e2e8f0;border-radius:4px;padding:4px 7px;font-size:10px;color:#334155;background:white;">5</div>
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:9px;color:#94a3b8;margin-bottom:3px;">报告输出文献数</div>
+              <div style="border:1px solid #e2e8f0;border-radius:4px;padding:4px 7px;font-size:10px;color:#334155;background:white;">10</div>
+            </div>
+            <div style="flex:1.5;">
+              <div style="font-size:9px;color:#94a3b8;margin-bottom:3px;">汇总模型</div>
+              <div style="border:1px solid #e2e8f0;border-radius:4px;padding:4px 7px;font-size:10px;color:#334155;background:white;">Kimi K2.5 ▾</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · 平铺卡片（推荐）</h3>
+      <p>平台、策略、参数各自一张卡片，从上到下。与 Step 1 保持相同的单栏节奏，视觉一致。</p>
+    </div>
+  </div>
+
+  <!-- Option B: 标签页 -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border-radius:8px;padding:14px;font-size:12px;color:#334155;font-family:sans-serif;">
+
+        <!-- 进度条 -->
+        <div style="display:flex;gap:8px;margin-bottom:12px;justify-content:center;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:20px;height:20px;border-radius:50%;background:#e2e8f0;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:10px;">✓</div>
+            <span style="font-size:10px;color:#94a3b8;">上传文件</span>
+          </div>
+          <div style="width:28px;height:1px;background:#2563eb;align-self:center;"></div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:20px;height:20px;border-radius:50%;background:#2563eb;color:white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">2</div>
+            <span style="font-size:10px;color:#2563eb;font-weight:600;">配置检索</span>
+          </div>
+          <div style="width:28px;height:1px;background:#cbd5e1;align-self:center;"></div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="width:20px;height:20px;border-radius:50%;background:#e2e8f0;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:10px;">3</div>
+            <span style="font-size:10px;color:#94a3b8;">确认提交</span>
+          </div>
+        </div>
+
+        <!-- 标签页 -->
+        <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+          <div style="display:flex;border-bottom:1px solid #e2e8f0;">
+            <div style="padding:7px 12px;font-size:10px;color:#2563eb;font-weight:600;border-bottom:2px solid #2563eb;margin-bottom:-1px;">平台</div>
+            <div style="padding:7px 12px;font-size:10px;color:#94a3b8;">策略</div>
+            <div style="padding:7px 12px;font-size:10px;color:#94a3b8;">参数</div>
+          </div>
+          <div style="padding:10px;">
+            <div style="font-size:9px;color:#64748b;margin-bottom:6px;">选择检索平台（多选）</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <div style="border:2px solid #2563eb;border-radius:5px;padding:5px 9px;font-size:10px;color:#2563eb;background:#eff6ff;">✓ 秘塔AI</div>
+              <div style="border:2px solid #2563eb;border-radius:5px;padding:5px 9px;font-size:10px;color:#2563eb;background:#eff6ff;">✓ Kimi K2.5</div>
+              <div style="border:1px solid #e2e8f0;border-radius:5px;padding:5px 9px;font-size:10px;color:#64748b;">智谱GLM-5.1</div>
+            </div>
+            <div style="margin-top:10px;padding:8px;background:#f8fafc;border-radius:4px;text-align:center;font-size:9px;color:#94a3b8;">
+              点击"策略"或"参数"切换标签页
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · 标签页</h3>
+      <p>平台 / 策略 / 参数分三个 Tab，一次只看一组。页面更短，但需要切换标签才能总览配置。</p>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "WebSearch",
+      "Bash(supabase db *)",
+      "Bash(npx shadcn@latest add switch table --yes)",
+      "Bash(npx shadcn@latest add dialog --yes)",
+      "Bash(node *)"
+    ]
+  }
+}
