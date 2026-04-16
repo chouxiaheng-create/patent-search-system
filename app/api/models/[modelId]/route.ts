@@ -19,11 +19,21 @@ export async function PUT(
     .single()
 
   if (!existing) return Response.json({ error: '模型不存在' }, { status: 404 })
-  if (existing.is_builtin || existing.owner_id !== user.id) {
+
+  const body = await request.json()
+  const admin = createServiceClient()
+
+  if (existing.is_builtin) {
+    if (!body.api_key) return Response.json({ error: '内置模型只支持更新 API Key' }, { status: 400 })
+    const { data, error } = await admin.from('ai_models').update({ api_key_encrypted: body.api_key }).eq('id', modelId).select().single()
+    if (error) return Response.json({ error: error.message }, { status: 500 })
+    return Response.json(data)
+  }
+
+  if (existing.owner_id !== user.id) {
     return Response.json({ error: '无权修改此模型' }, { status: 403 })
   }
 
-  const body = await request.json()
   const { name, api_base_url, model_id, api_key, usage_types, capabilities, adapter_config } = body as {
     name?: string; api_base_url?: string; model_id?: string; api_key?: string
     usage_types?: string[]; capabilities?: { deep_reasoning: boolean; web_search: boolean }
@@ -39,14 +49,7 @@ export async function PUT(
   if (capabilities) updates.capabilities = capabilities
   if (adapter_config) updates.adapter_config = adapter_config
 
-  const admin = createServiceClient()
-  const { data, error } = await admin
-    .from('ai_models')
-    .update(updates)
-    .eq('id', modelId)
-    .select()
-    .single()
-
+  const { data, error } = await admin.from('ai_models').update(updates).eq('id', modelId).select().single()
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json(data)
 }

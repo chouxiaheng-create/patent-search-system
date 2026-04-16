@@ -58,8 +58,7 @@ describe('PUT /api/models/[modelId]', () => {
     expect(res.status).toBe(401)
   })
 
-  // TODO Task 9: this test will be updated when builtin model API key update is supported (403 → 200)
-  it('尝试修改内置模型时返回 403', async () => {
+  it('内置模型不传 api_key 时返回 400', async () => {
     const { createClient } = await import('@/lib/supabase/server')
     ;(createClient as ReturnType<typeof vi.fn>).mockResolvedValue({
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
@@ -74,7 +73,39 @@ describe('PUT /api/models/[modelId]', () => {
     const { PUT } = await import('@/app/api/models/[modelId]/route')
     const res = await PUT(new Request('http://localhost/api/models/abc', { method: 'PUT', body: '{}' }) as any,
       { params: Promise.resolve({ modelId: 'abc' }) })
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(400)
+  })
+
+  it('更新内置模型的 API Key 返回 200', async () => {
+    const { createClient } = await import('@/lib/supabase/server')
+    ;(createClient as ReturnType<typeof vi.fn>).mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { id: 'abc', owner_id: null, is_builtin: true }, error: null }),
+          }),
+        }),
+      }),
+    })
+    const { createServiceClient } = await import('@/lib/supabase/admin')
+    ;(createServiceClient as ReturnType<typeof vi.fn>).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { id: 'abc', api_key_encrypted: 'sk-xxx' }, error: null }),
+            }),
+          }),
+        }),
+      }),
+    })
+    const { PUT } = await import('@/app/api/models/[modelId]/route')
+    const res = await PUT(
+      new Request('http://localhost/api/models/abc', { method: 'PUT', body: JSON.stringify({ api_key: 'sk-xxx' }) }) as any,
+      { params: Promise.resolve({ modelId: 'abc' }) }
+    )
+    expect(res.status).toBe(200)
   })
 })
 
