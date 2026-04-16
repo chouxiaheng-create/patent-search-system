@@ -1,4 +1,4 @@
-import PgBoss from 'pg-boss'
+import { PgBoss } from 'pg-boss'
 
 declare global {
   // eslint-disable-next-line no-var
