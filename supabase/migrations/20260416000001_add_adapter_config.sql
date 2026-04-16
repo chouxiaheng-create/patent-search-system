@@ -1,0 +1,2 @@
+ALTER TABLE ai_models
+  ADD COLUMN IF NOT EXISTS adapter_config JSONB NOT NULL DEFAULT '{}';
