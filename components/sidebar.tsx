@@ -16,7 +16,7 @@ import {
 
 const navItems = [
   { href: '/dashboard', label: '我的任务', icon: LayoutDashboard },
-  { href: '/search/new', label: '新建检索', icon: Search },
+  { href: '/search/new/step-1', label: '新建检索', icon: Search },
   { href: '/settings/models', label: '模型库', icon: Settings },
 ]
 
