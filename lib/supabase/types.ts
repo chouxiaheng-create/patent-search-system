@@ -35,6 +35,23 @@ export interface Profile {
   created_at: string
 }
 
+export interface AdapterConfig {
+  provider: 'openai_compat' | 'metaso'
+  web_search_method: 'tools_builtin' | 'tools_web_search' | 'extra_body' | 'native' | 'none'
+  web_search_tool_name?: string
+  thinking_method: 'param' | 'model_switch' | 'extra_body' | 'default_on' | 'none'
+  thinking_model_id?: string
+  web_search_disables_thinking: boolean
+  thinking_default_on: boolean
+}
+
+/** 用于 search_jobs.config 中记录本次检索的功能开关 */
+export interface ModelFeatureOverride {
+  model_id: string          // ai_models.id (UUID)
+  enable_thinking: boolean
+  enable_web_search: boolean
+}
+
 export interface AIModel {
   id: string
   owner_id: string | null
@@ -45,6 +62,7 @@ export interface AIModel {
   is_builtin: boolean
   usage_types: string[]
   capabilities: { deep_reasoning: boolean; web_search: boolean }
+  adapter_config: AdapterConfig
   created_at: string
 }
 
@@ -91,6 +109,8 @@ export interface SearchJob {
     per_task_limit: number
     report_limit: number
     report_model_id: string
+    report_system_prompt?: string
+    model_feature_overrides?: ModelFeatureOverride[]
   }
   started_at: string | null
   completed_at: string | null
