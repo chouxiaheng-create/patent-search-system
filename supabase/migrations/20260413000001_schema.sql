@@ -1,7 +1,7 @@
 -- supabase/migrations/20260413000001_schema.sql
 
 -- 1. profiles（用户档案）
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
   id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   role text NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
   display_name text,
@@ -21,12 +21,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
 -- 2. ai_models（AI 模型库）
-CREATE TABLE ai_models (
+CREATE TABLE IF NOT EXISTS ai_models (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   name text NOT NULL,
@@ -36,11 +37,12 @@ CREATE TABLE ai_models (
   is_builtin boolean NOT NULL DEFAULT false,
   usage_types text[] NOT NULL DEFAULT '{}',
   capabilities jsonb NOT NULL DEFAULT '{"deep_reasoning": false, "web_search": false}',
+  adapter_config jsonb NOT NULL DEFAULT '{"provider":"openai_compat","web_search_method":"none","thinking_method":"none","web_search_disables_thinking":false,"thinking_default_on":false}',
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- 3. search_strategies（检索策略）
-CREATE TABLE search_strategies (
+CREATE TABLE IF NOT EXISTS search_strategies (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   name text NOT NULL,
@@ -50,7 +52,7 @@ CREATE TABLE search_strategies (
 );
 
 -- 4. patent_documents（专利文献）
-CREATE TABLE patent_documents (
+CREATE TABLE IF NOT EXISTS patent_documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title text NOT NULL,
@@ -59,13 +61,14 @@ CREATE TABLE patent_documents (
   parse_status text NOT NULL DEFAULT 'pending'
     CHECK (parse_status IN ('pending', 'parsing', 'done', 'needs_review', 'failed')),
   parsed_data jsonb,
+  parse_config jsonb,
   quality_warning boolean NOT NULL DEFAULT false,
   user_notes text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- 5. search_jobs（检索任务主表）
-CREATE TABLE search_jobs (
+CREATE TABLE IF NOT EXISTS search_jobs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   document_id uuid NOT NULL REFERENCES patent_documents(id) ON DELETE CASCADE,
@@ -79,7 +82,7 @@ CREATE TABLE search_jobs (
 );
 
 -- 6. search_tasks（子任务明细）
-CREATE TABLE search_tasks (
+CREATE TABLE IF NOT EXISTS search_tasks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   job_id uuid NOT NULL REFERENCES search_jobs(id) ON DELETE CASCADE,
   model_id uuid NOT NULL REFERENCES ai_models(id),
@@ -94,7 +97,7 @@ CREATE TABLE search_tasks (
 );
 
 -- 7. reports（检索报告）
-CREATE TABLE reports (
+CREATE TABLE IF NOT EXISTS reports (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   job_id uuid NOT NULL REFERENCES search_jobs(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -106,7 +109,7 @@ CREATE TABLE reports (
 );
 
 -- 8. notifications（站内通知）
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   job_id uuid REFERENCES search_jobs(id) ON DELETE SET NULL,
