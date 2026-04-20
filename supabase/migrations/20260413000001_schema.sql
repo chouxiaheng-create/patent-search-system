@@ -120,8 +120,24 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- 开启所有表的 Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE search_jobs;
-ALTER PUBLICATION supabase_realtime ADD TABLE search_tasks;
-ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
-ALTER PUBLICATION supabase_realtime ADD TABLE patent_documents;
+-- 开启所有表的 Realtime（幂等：忽略已存在的报错）
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE search_jobs;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE search_tasks;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE patent_documents;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
