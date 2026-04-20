@@ -86,11 +86,16 @@ export interface SearchResult {
 }
 
 export function parseSearchResults(aiContent: string, limit: number): SearchResult[] {
+  if (!aiContent || aiContent.trim() === '') {
+    return []
+  }
+
   try {
+    // 尝试 JSON 数组解析
     const jsonMatch = aiContent.match(/(\[[\s\S]*?\])/m)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[1])
-      if (Array.isArray(parsed)) {
+      if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed.slice(0, limit).map((item: Record<string, string>, index: number) => ({
           title: item.title || `文献${index + 1}`,
           authors: item.authors || '未知',
@@ -105,16 +110,46 @@ export function parseSearchResults(aiContent: string, limit: number): SearchResu
     // JSON解析失败，尝试文本解析
   }
 
-  // 降级：提取链接作为结果
-  const urls = aiContent.match(/https?:\/\/[^\s，,。]+/g) || []
-  return urls.slice(0, limit).map((url, i) => ({
-    title: `检索结果 ${i + 1}`,
-    authors: '未知',
-    url,
-    pub_date: '',
-    relevance_desc: '',
-    citation_gb: url
-  }))
+  // 文本解析：提取格式化内容（标题：xxx\n链接：xxx\n摘要：xxx）
+  const results: SearchResult[] = []
+  const entries = aiContent.split(/标题：[^\n]+\n链接：[^\n]+\n摘要：[^\n]*/)
+
+  const titleMatches = aiContent.match(/标题：(.*)/g) || []
+  const urlMatches = aiContent.match(/链接：(https?:\S+)/g) || []
+  const descMatches = aiContent.match(/摘要：(.*?)(?=标题：|$)/gs) || []
+
+  const count = Math.min(titleMatches.length, limit)
+
+  for (let i = 0; i < count; i++) {
+    const title = titleMatches[i]?.replace(/^标题：/, '').trim() || `文献${i + 1}`
+    const urlMatch = urlMatches[i]?.match(/链接：(.*)/)
+    const url = urlMatch ? urlMatch[1].trim() : ''
+    const desc = descMatches[i]?.replace(/^摘要：/, '').trim() || ''
+
+    results.push({
+      title,
+      authors: '未知',
+      url,
+      pub_date: '',
+      relevance_desc: desc,
+      citation_gb: url || title
+    })
+  }
+
+  // 如果解析失败，降级为提取所有 URL
+  if (results.length === 0) {
+    const urls = aiContent.match(/https?:\/\/[^\s\n，,。]+/g) || []
+    return urls.slice(0, limit).map((url) => ({
+      title: `检索结果`,
+      authors: '未知',
+      url,
+      pub_date: '',
+      relevance_desc: '',
+      citation_gb: url
+    }))
+  }
+
+  return results
 }
 
 function generateCitation(item: Record<string, string>): string {

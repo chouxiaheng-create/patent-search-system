@@ -1,5 +1,5 @@
 // worker/src/services/report.ts
-import { supabase } from './supabase'
+import { supabase, getModel } from './supabase'
 import { getSearchTasks, getPlatformNames, getStrategyNames } from './supabase'
 import { createAdapter } from '../adapters'
 import { ParsedData, SearchResult, buildSelectionPrompt, parseSelectionResult } from '../utils/prompt'
@@ -62,7 +62,7 @@ export async function generateReport(
   const uniqueResults = deduplicateResults(allResults)
 
   // 4. 筛选 Top-N
-  const topDocs = await selectTopDocs(uniqueResults, config)
+  const topDocs = await selectTopDocs(jobId, uniqueResults, config)
 
   // 5. 生成 HTML
   const reportData: ReportInput = {
@@ -104,6 +104,7 @@ function deduplicateResults(results: Array<SearchResult & { source_task_id: stri
 }
 
 async function selectTopDocs(
+  jobId: string,
   results: Array<SearchResult & { source_task_id: string; source_platform: string; source_strategy: string }>,
   config: { report_limit: number; report_model_id: string }
 ): Promise<SelectedDoc[]> {
@@ -166,8 +167,6 @@ function toSelectedDoc(r: SearchResult & { source_task_id: string; source_platfo
     user_rating: null
   }
 }
-
-var jobId: string
 
 function buildHtmlReport(data: ReportInput): string {
   const { topDocs, pathSummary, searchPlatforms, searchStrategies } = data
@@ -245,10 +244,4 @@ function escapeHtml(text: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
-}
-
-async function getModel(modelId: string) {
-  const { data, error } = await supabase.from('ai_models').select('*').eq('id', modelId).single()
-  if (error || !data) throw new Error(`获取汇总模型失败: ${modelId}`)
-  return data
 }

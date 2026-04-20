@@ -14,15 +14,14 @@ export class MetasoAdapter implements AIAdapter {
     const timeoutId = setTimeout(() => controller.abort(), timeout)
 
     try {
-      const response = await fetch(`${this.baseUrl}/search`, {
+      const response = await fetch(`${this.baseUrl}/v1/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`
         },
         body: JSON.stringify({
-          query: options.prompt,
-          model: options.modelId
+          q: options.prompt
         }),
         signal: controller.signal
       })
@@ -34,13 +33,24 @@ export class MetasoAdapter implements AIAdapter {
         return { success: false, error: `HTTP ${response.status}: ${errorText}` }
       }
 
-      const data = await response.json() as { results?: Array<{ content?: string }>; answer?: string; error?: string }
-
-      if (data.error) {
-        return { success: false, error: data.error }
+      const data = await response.json() as {
+        errCode?: number
+        errMsg?: string
+        webpages?: Array<{ title?: string; link?: string; snippet?: string }>
       }
 
-      const content = data.answer || data.results?.map(r => r.content).join('\n') || ''
+      if (data.errCode && data.errCode !== 0) {
+        return { success: false, error: `Metaso API error: ${data.errCode} - ${data.errMsg}` }
+      }
+
+      if (!data.webpages || data.webpages.length === 0) {
+        return { success: true, content: '' }
+      }
+
+      const content = data.webpages.map(w =>
+        `标题：${w.title || '未知'}\n链接：${w.link || '无'}\n摘要：${w.snippet || '无'}`
+      ).join('\n\n')
+
       return { success: true, content }
     } catch (err: unknown) {
       clearTimeout(timeoutId)

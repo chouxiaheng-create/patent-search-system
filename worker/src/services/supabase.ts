@@ -9,7 +9,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey, {
 
 export async function downloadFile(fileUrl: string): Promise<Buffer> {
   const { data, error } = await supabase.storage
-    .from('patent-files')
+    .from('documents')
     .download(fileUrl)
 
   if (error) throw new Error(`下载文件失败: ${error.message}`)

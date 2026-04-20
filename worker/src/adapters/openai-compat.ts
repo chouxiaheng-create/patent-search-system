@@ -10,6 +10,7 @@ export interface AIModelRecord {
     provider: 'openai_compat' | 'metaso'
     web_search_method: 'tools_builtin' | 'tools_web_search' | 'extra_body' | 'native' | 'none'
     web_search_tool_name?: string
+    web_search_params?: Record<string, unknown>  // 智谱等需要额外参数
     thinking_method: 'param' | 'model_switch' | 'extra_body' | 'default_on' | 'none'
     thinking_model_id?: string
     web_search_disables_thinking: boolean
@@ -50,18 +51,47 @@ export class OpenAICompatAdapter implements AIAdapter {
         return { success: false, error: `HTTP ${response.status}: ${errorText}` }
       }
 
-      const data = await response.json() as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } }
+      const data = await response.json() as {
+        choices?: Array<{
+          message?: {
+            content?: string
+            tool_calls?: Array<{ function?: { arguments?: string } }>
+          }
+        }>
+        error?: { message?: string }
+      }
 
       if (data.error) {
         return { success: false, error: data.error.message }
       }
 
-      const content = data.choices?.[0]?.message?.content
-      if (!content) {
-        return { success: false, error: 'AI 返回内容为空' }
+      const message = data.choices?.[0]?.message
+
+      // 优先取 content
+      if (message?.content) {
+        return { success: true, content: message.content }
       }
 
-      return { success: true, content }
+      // 如果使用了工具，尝试从 tool_calls 获取结果
+      if (message?.tool_calls && message.tool_calls.length > 0) {
+        // 工具调用的结果通常在 arguments 中，是 JSON 字符串
+        const toolResult = message.tool_calls[0]?.function?.arguments
+        if (toolResult) {
+          try {
+            const parsed = JSON.parse(toolResult)
+            // 有些 API 返回的结果在不同字段
+            const content = parsed.content || parsed.result || JSON.stringify(parsed)
+            if (content) {
+              return { success: true, content }
+            }
+          } catch {
+            // 如果不是 JSON，直接返回
+            return { success: true, content: toolResult }
+          }
+        }
+      }
+
+      return { success: false, error: 'AI 返回内容为空' }
     } catch (err: unknown) {
       clearTimeout(timeoutId)
       if (err instanceof Error && err.name === 'AbortError') {
@@ -109,9 +139,19 @@ export class OpenAICompatAdapter implements AIAdapter {
       }
 
       if (web_search_method === 'tools_builtin') {
-        body.tools = [{ type: 'builtin_function', function: { name: '$web_search' } }]
+        // 使用数据库中配置的工具名（如 $web_search）
+        const toolName = this.adapterConfig.web_search_tool_name || '$web_search'
+        body.tools = [{ type: 'builtin_function', function: { name: toolName } }]
       } else if (web_search_method === 'tools_web_search') {
-        body.tools = [{ type: 'web_search' }]
+        // MiniMax, 智谱等使用 web_search 工具类型
+        // 智谱要求 web_search 属性必须存在且非空
+        const webSearchParams = this.adapterConfig.web_search_params
+        if (webSearchParams && Object.keys(webSearchParams).length > 0) {
+          body.tools = [{ type: 'web_search', web_search: webSearchParams }]
+        } else {
+          // 默认参数，智谱可能需要 search_mode
+          body.tools = [{ type: 'web_search', web_search: { search_mode: 'online' } }]
+        }
       } else if (web_search_method === 'extra_body') {
         body.extra_body = body.extra_body || {}
         const extraBody = body.extra_body as Record<string, unknown>

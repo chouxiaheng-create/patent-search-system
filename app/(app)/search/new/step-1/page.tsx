@@ -73,7 +73,7 @@ export default function Step1Page() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const filePath = `${user.id}/${Date.now()}-${file.name}`
+      const filePath = `${user.id}/${Date.now()}-${file.name.replace(/[^\x00-\x7F]/g, '_')}`
       const { error: storageError } = await supabase.storage.from('documents').upload(filePath, file)
       if (storageError) throw storageError
       setUploadProgress(100)

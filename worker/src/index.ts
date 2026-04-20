@@ -1,4 +1,5 @@
 // worker/src/index.ts
+import 'dotenv/config'
 import { PgBoss } from 'pg-boss'
 import type { Job } from 'pg-boss'
 import { startHealthServer } from './health'
@@ -21,6 +22,11 @@ async function main() {
 
   await boss.start()
   console.log('[Worker] pg-boss started')
+
+  // 确保队列存在（首次运行时会创建表）
+  await boss.createQueue('parse-job')
+  await boss.createQueue('search-job')
+  console.log('[Worker] 队列已创建')
 
   // 注册任务处理器
   await boss.work('parse-job', { localConcurrency: 1 }, handleParseJob as (job: Job<unknown>[]) => Promise<void>)
