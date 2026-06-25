@@ -1,4 +1,4 @@
-// components/report/report-view.tsx
+﻿// components/report/report-view.tsx
 'use client'
 
 import { useState, useCallback } from 'react'
@@ -8,31 +8,10 @@ import { DocumentList } from './document-list'
 import { ReportPreview } from './report-preview'
 import { ExportMenu } from './export-menu'
 import { Button } from '@/components/ui/button'
-
-interface ReportDocument {
-  rank: number
-  title: string
-  authors: string
-  url: string
-  pub_date: string
-  relevance_desc: string
-  citation_gb: string
-  source_platform: string
-  source_strategy: string
-  user_rating: 'useful' | 'irrelevant' | null
-  user_note: string
-}
+import type { Report } from '@/lib/supabase/types'
 
 interface ReportViewProps {
-  report: {
-    id: string
-    job_id: string
-    html_content: string
-    selected_docs: ReportDocument[]
-    doc_count: number
-    created_at: string
-    document?: { id: string; title: string }
-  }
+  report: Report
 }
 
 export function ReportView({ report }: ReportViewProps) {
@@ -74,7 +53,7 @@ export function ReportView({ report }: ReportViewProps) {
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col">
       {/* 顶部操作栏 */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-white">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
             <Link href={`/search/${report.job_id}/progress`}>
@@ -82,7 +61,7 @@ export function ReportView({ report }: ReportViewProps) {
               返回
             </Link>
           </Button>
-          <h1 className="text-sm font-semibold text-slate-800 truncate max-w-md">
+          <h1 className="text-sm font-semibold text-foreground truncate max-w-md">
             {docTitle}
           </h1>
         </div>
@@ -90,9 +69,9 @@ export function ReportView({ report }: ReportViewProps) {
       </div>
 
       {/* 主体区域 */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* 左侧文献列表 */}
-        <div className="w-[360px] border-r border-slate-200 bg-slate-50 flex-shrink-0 overflow-hidden">
+        <div className="w-full md:w-[360px] md:border-r border-b md:border-b-0 border-white/[0.08] bg-muted flex-shrink-0 overflow-hidden md:h-auto h-[50vh]">
           <DocumentList
             documents={documents}
             selectedIndex={selectedIndex}

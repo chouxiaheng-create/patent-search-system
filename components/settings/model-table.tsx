@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,10 @@ import type { AIModel } from '@/lib/supabase/types'
 
 const USAGE_LABEL: Record<string, string> = {
   search: '检索', parse: '解析', report: '报告',
+}
+
+const PROVIDER_LABEL: Record<string, string> = {
+  openai_compat: 'OpenAI 兼容', metaso: '秘塔AI',
 }
 
 interface ModelTableProps {
@@ -25,6 +29,7 @@ export function ModelTable({ models, onEdit, onDelete }: ModelTableProps) {
         <TableRow>
           <TableHead>模型名称</TableHead>
           <TableHead>模型 ID</TableHead>
+          <TableHead>协议</TableHead>
           <TableHead>用途</TableHead>
           <TableHead>能力</TableHead>
           <TableHead>API Key</TableHead>
@@ -38,48 +43,49 @@ export function ModelTable({ models, onEdit, onDelete }: ModelTableProps) {
               <div className="flex items-center gap-2">
                 {model.name}
                 {model.is_builtin && (
-                  <Badge variant="secondary" className="text-xs">内置</Badge>
+                  <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground border-border">内置</Badge>
                 )}
               </div>
             </TableCell>
-            <TableCell className="font-mono text-sm text-slate-500">{model.model_id}</TableCell>
+            <TableCell className="font-mono text-sm text-muted-foreground">{model.model_id}</TableCell>
+            <TableCell className="text-xs text-muted-foreground">{PROVIDER_LABEL[model.adapter_config?.provider] ?? model.adapter_config?.provider ?? '-'}</TableCell>
             <TableCell>
               <div className="flex flex-wrap gap-1">
                 {model.usage_types.map((t) => (
-                  <Badge key={t} variant="outline" className="text-xs">{USAGE_LABEL[t] ?? t}</Badge>
+                  <Badge key={t} variant="outline" className="text-xs border-border text-muted-foreground">{USAGE_LABEL[t] ?? t}</Badge>
                 ))}
               </div>
             </TableCell>
             <TableCell>
               <div className="flex gap-1">
                 {model.capabilities.deep_reasoning && (
-                  <Badge className="text-xs bg-purple-50 text-purple-700 border-purple-200">深度思考</Badge>
+                  <Badge className="text-xs bg-[#af52de]/[0.08] text-[#af52de] border-[#af52de]/20">深度思考</Badge>
                 )}
                 {model.capabilities.web_search && (
-                  <Badge className="text-xs bg-blue-50 text-blue-700 border-blue-200">联网搜索</Badge>
+                  <Badge className="text-xs bg-primary/10 text-primary border-primary/20">联网搜索</Badge>
                 )}
               </div>
             </TableCell>
             <TableCell>
               {model.api_key_encrypted ? (
-                <span className="text-xs text-green-600 font-medium">已配置 ✓</span>
+                <span className="text-xs text-emerald-600 font-medium">已配置 ✓</span>
               ) : (
-                <span className="text-xs text-slate-400">未配置</span>
+                <span className="text-xs text-muted-foreground">未配置</span>
               )}
             </TableCell>
             <TableCell>
-              {model.is_builtin ? (
+              {!model.owner_id ? (
                 <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => onEdit(model)} title="查看/配置 API Key">
+                  <Button size="icon" variant="ghost" className="rounded-lg" onClick={() => onEdit(model)} title="配置 API Key">
                     <Lock size={14} />
                   </Button>
                 </div>
               ) : (
                 <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => onEdit(model)}>
+                  <Button size="icon" variant="ghost" className="rounded-lg" onClick={() => onEdit(model)} title="编辑模型">
                     <Pencil size={14} />
                   </Button>
-                  <Button size="icon" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => onDelete(model)}>
+                  <Button size="icon" variant="ghost" className="rounded-lg text-red-600 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(model)} title="删除模型">
                     <Trash2 size={14} />
                   </Button>
                 </div>
@@ -89,7 +95,7 @@ export function ModelTable({ models, onEdit, onDelete }: ModelTableProps) {
         ))}
         {models.length === 0 && (
           <TableRow>
-            <TableCell colSpan={6} className="text-center text-slate-400 py-8">暂无模型，点击右上角添加</TableCell>
+            <TableCell colSpan={7} className="text-center text-muted-foreground py-8">暂无模型，点击右上角添加</TableCell>
           </TableRow>
         )}
       </TableBody>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { HelpCircle } from 'lucide-react'
 import type { AIModel, SearchStrategy, PatentDocument, ModelFeatureOverride } from '@/lib/supabase/types'
 
 const DEFAULT_REPORT_PROMPT = `你是专业专利检索分析师。以下是针对一件专利申请的多路检索结果，请综合评估，
@@ -77,10 +79,16 @@ export default function Step2Page() {
         per_task_limit: perTaskLimit, report_limit: reportLimit, report_model_id: selectedReportModelIds[0] ?? '', report_system_prompt: reportPrompt,
       }) }).catch(() => {})
     }
-    const p = new URLSearchParams({ documentId, modelIds: selectedSearchModelIds.join(','), strategyIds: selectedStrategyIds.join(','),
-      perTaskLimit: String(perTaskLimit), reportLimit: String(reportLimit), reportModelId: selectedReportModelIds[0] ?? '', reportSystemPrompt: reportPrompt,
-      featureOverrides: JSON.stringify(featureOverrides) })
-    router.push(`/search/new/step-3?${p}`)
+    // 使用 URL 参数传递配置（简单可靠）
+    const params = new URLSearchParams({
+      documentId,
+      modelIds: selectedSearchModelIds.join(','),
+      strategyIds: selectedStrategyIds.join(','),
+      perTaskLimit: String(perTaskLimit),
+      reportLimit: String(reportLimit),
+      reportModelId: selectedReportModelIds[0] ?? '',
+    })
+    router.push(`/search/new/step-3?${params.toString()}`)
   }
 
   const searchModels = models.filter(m => m.usage_types.includes('search'))
@@ -89,53 +97,70 @@ export default function Step2Page() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <WizardProgress currentStep={2} />
-      <div className="space-y-6">
-        <section className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700">检索平台（多选）</h3>
+      <WizardProgress currentStep={2} documentId={documentId ?? undefined} />
+      <div className="space-y-5">
+        <section className="card-apple p-4 sm:p-5 space-y-4">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">检索平台（多选）</h3>
           <ModelSelector models={searchModels} mode="search" multiSelect selectedIds={selectedSearchModelIds} onChange={setSelectedSearchModelIds}
             featureOverrides={featureOverrides} onFeatureOverridesChange={setFeatureOverrides} />
         </section>
 
-        <section className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700">检索策略（多选）</h3>
-          <div className="space-y-2">
+        <section className="card-apple p-4 sm:p-5 space-y-4">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">检索策略（多选）</h3>
+          <div className="space-y-1">
             {strategies.map(s => (
-              <div key={s.id} className="flex items-center justify-between py-1">
-                <div className="flex items-center gap-2">
+              <div key={s.id} className="flex items-center justify-between py-1.5">
+                <div className="flex items-center gap-2.5">
                   <Checkbox id={`s-${s.id}`} checked={selectedStrategyIds.includes(s.id)}
                     onCheckedChange={v => setSelectedStrategyIds(v ? [...selectedStrategyIds, s.id] : selectedStrategyIds.filter(id => id !== s.id))} />
-                  <Label htmlFor={`s-${s.id}`} className="text-sm cursor-pointer">{s.name}</Label>
-                  {s.is_builtin && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">内置</span>}
+                  <Label htmlFor={`s-${s.id}`} className="text-sm font-medium cursor-pointer">{s.name}</Label>
+                  {s.is_builtin && <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">内置</span>}
                 </div>
-                <button type="button" onClick={() => { setActiveStrategy(s); setSheetOpen(true) }} className="text-xs text-blue-600 hover:underline">查看/编辑提示词</button>
+                <button type="button" onClick={() => { setActiveStrategy(s); setSheetOpen(true) }} className="text-xs font-medium text-primary hover:underline">查看/编辑提示词</button>
               </div>
             ))}
-            <button type="button" onClick={() => { setActiveStrategy(null); setSheetOpen(true) }} className="text-sm text-blue-600 hover:underline mt-1">+ 新建自定义策略</button>
+            <button type="button" onClick={() => { setActiveStrategy(null); setSheetOpen(true) }} className="text-sm font-medium text-primary hover:underline mt-1">+ 新建自定义策略</button>
           </div>
         </section>
 
-        <section className="bg-white rounded-lg border border-slate-200 p-4 space-y-4">
-          <h3 className="text-sm font-semibold text-slate-700">参数</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1"><Label className="text-sm">每路径备选文献数</Label><Input type="number" min={1} max={20} value={perTaskLimit} onChange={e => setPerTaskLimit(Number(e.target.value))} className="w-24" /></div>
-            <div className="space-y-1"><Label className="text-sm">报告输出文献数</Label><Input type="number" min={1} max={30} value={reportLimit} onChange={e => setReportLimit(Number(e.target.value))} className="w-24" /></div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm">汇总模型</Label>
-            <ModelSelector models={reportModels} mode="report" selectedIds={selectedReportModelIds} onChange={setSelectedReportModelIds} />
-            <PromptEditor label="编辑报告生成提示词" value={reportPrompt} onChange={setReportPrompt} />
-          </div>
-        </section>
+        <TooltipProvider>
+          <section className="card-apple p-4 sm:p-5 space-y-4">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">参数</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <Label className="text-sm font-medium">每路径备选文献数</Label>
+                  <Tooltip><TooltipTrigger asChild><HelpCircle size={13} className="text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent><p>每个检索平台×策略组合返回的最大候选文献数</p></TooltipContent></Tooltip>
+                </div>
+                <Input type="number" min={1} max={20} value={perTaskLimit} onChange={e => setPerTaskLimit(Number(e.target.value))} className="w-24" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <Label className="text-sm font-medium">报告输出文献数</Label>
+                  <Tooltip><TooltipTrigger asChild><HelpCircle size={13} className="text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent><p>最终报告中展示的最相关文献数量</p></TooltipContent></Tooltip>
+                </div>
+                <Input type="number" min={1} max={30} value={reportLimit} onChange={e => setReportLimit(Number(e.target.value))} className="w-24" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <Label className="text-sm font-medium">汇总模型</Label>
+                <Tooltip><TooltipTrigger asChild><HelpCircle size={13} className="text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent><p>用于从多路检索结果中筛选最相关文献的 AI 模型</p></TooltipContent></Tooltip>
+              </div>
+              <ModelSelector models={reportModels} mode="report" selectedIds={selectedReportModelIds} onChange={setSelectedReportModelIds} />
+              <PromptEditor label="编辑报告生成提示词" value={reportPrompt} onChange={setReportPrompt} />
+            </div>
+          </section>
+        </TooltipProvider>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Checkbox id="save-prefs" checked={savePreferences} onCheckedChange={v => setSavePreferences(!!v)} />
-          <Label htmlFor="save-prefs" className="text-sm cursor-pointer">保存当前配置为我的偏好配置</Label>
+          <Label htmlFor="save-prefs" className="text-sm font-medium cursor-pointer">保存当前配置为我的偏好配置</Label>
         </div>
 
-        <div className="flex justify-between">
-          <Button variant="outline" onClick={() => router.push('/search/new/step-1')}>← 上一步</Button>
-          <Button onClick={handleNext} disabled={!canProceed}>下一步 →</Button>
+        <div className="flex justify-between pt-2">
+          <Button variant="outline" onClick={() => router.push(`/search/new/step-1?documentId=${documentId}`)}>← 上一步</Button>
+          <Button onClick={handleNext} disabled={!canProceed} size="lg">下一步 →</Button>
         </div>
       </div>
 

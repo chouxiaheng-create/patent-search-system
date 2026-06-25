@@ -1,4 +1,4 @@
-// app/(app)/layout.tsx
+﻿// app/(app)/layout.tsx
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/sidebar'
@@ -20,11 +20,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const displayName = profile?.display_name ?? user.email ?? null
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-background">
       <Sidebar isAdmin={isAdmin} />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         <Header displayName={displayName} />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

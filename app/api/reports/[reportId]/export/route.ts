@@ -171,7 +171,7 @@ export async function GET(
 
   const { data: report, error } = await supabase
     .from('reports')
-    .select('*, document:patent_documents(title)')
+    .select('*')
     .eq('id', reportId)
     .eq('user_id', user.id)
     .single()
@@ -180,8 +180,30 @@ export async function GET(
     return NextResponse.json({ error: 'Report not found' }, { status: 404 })
   }
 
+  // 通过 job 获取关联文档标题（reports 表无 document_id 列，需间接查询）
+  let documentTitle = ''
+  const { data: jobData } = await supabase
+    .from('search_jobs')
+    .select('document_id')
+    .eq('id', report.job_id)
+    .single()
+
+  if (jobData?.document_id) {
+    const { data: docData } = await supabase
+      .from('patent_documents')
+      .select('title')
+      .eq('id', jobData.document_id)
+      .single()
+    if (docData?.title) {
+      documentTitle = docData.title
+    }
+  }
+
+  // 附加文档信息到 report 对象
+  const enrichedReport = { ...report, document: { title: documentTitle } }
+
   if (format === 'markdown') {
-    const content = buildMarkdown(report)
+    const content = buildMarkdown(enrichedReport)
     return new NextResponse(content, {
       headers: {
         'Content-Type': 'text/markdown; charset=utf-8',
@@ -191,7 +213,7 @@ export async function GET(
   }
 
   if (format === 'docx') {
-    const doc = buildDocx(report)
+    const doc = buildDocx(enrichedReport)
     const buffer = await Packer.toBuffer(doc)
     return new NextResponse(new Uint8Array(buffer), {
       headers: {

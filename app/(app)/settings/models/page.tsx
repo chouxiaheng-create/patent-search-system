@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
@@ -48,12 +48,14 @@ export default function ModelsSettingsPage() {
     if (editingModel) {
       const body: Record<string, unknown> = {}
       if (data.api_key) body.api_key = data.api_key
-      if (!editingModel.is_builtin) {
+      // 有 owner_id 的用户自定义模型可编辑全部字段
+      if (editingModel.owner_id) {
         body.name = data.name
         body.api_base_url = data.api_base_url
         body.model_id = data.model_id
         body.usage_types = data.usage_types
         body.capabilities = data.capabilities
+        body.adapter_config = data.adapter_config
       }
       const res = await fetch(`/api/models/${editingModel.id}`, {
         method: 'PUT',
@@ -89,18 +91,23 @@ export default function ModelsSettingsPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">模型库</h1>
-          <p className="text-sm text-slate-500 mt-1">管理 AI 模型及 API Key。内置模型由系统提供，点击锁图标配置你的 API Key。</p>
+          <h1 className="text-xl font-semibold text-foreground">模型库</h1>
+          <p className="text-sm text-muted-foreground mt-1">管理 AI 模型及 API Key。内置模型仅可配置 Key，自定义模型支持编辑全部参数。</p>
         </div>
-        <Button onClick={handleAdd} className="flex items-center gap-2">
+        <Button onClick={handleAdd} className="flex items-center gap-2 rounded-xl">
           <Plus size={16} />添加自定义模型
         </Button>
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-slate-400">加载中...</div>
+        <div className="flex items-center justify-center py-16">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            <span className="text-sm font-medium">加载中...</span>
+          </div>
+        </div>
       ) : (
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-white/[0.08] overflow-hidden">
           <ModelTable models={models} onEdit={handleEdit} onDelete={handleDelete} />
         </div>
       )}

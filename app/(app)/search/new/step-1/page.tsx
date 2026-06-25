@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { WizardProgress } from '@/components/wizard/wizard-progress'
@@ -11,14 +12,24 @@ import { HistoryDocPicker } from '@/components/wizard/history-doc-picker'
 import { ParseResultForm } from '@/components/wizard/parse-result-form'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import type { AIModel, PatentDocument, UserPreferences } from '@/lib/supabase/types'
 
-const DEFAULT_PARSE_PROMPT = `你是专利文献解析专家。请从以下专利文献中提取结构化信息，输出 JSON 格式，包含字段：
-tech_theme（技术主题）、applicant（申请人）、inventor（发明人）、
-filing_date（申请日，格式 YYYY-MM-DD）、main_tech_steps（主要技术方案步骤）、
-core_invention（核心发明构思）。若字段无法确定则输出空字符串。`
+const DEFAULT_PARSE_PROMPT = `你是专利文献解析专家。请从以下专利文献中提取结构化信息，输出 JSON 格式。键名必须使用英文，不可翻译：
+
+{
+  "tech_theme": "技术主题（一句话概括）",
+  "applicant": "申请人",
+  "inventor": "发明人（多人用顿号分隔）",
+  "filing_date": "申请日（YYYY-MM-DD格式）",
+  "main_tech_steps": "主要技术方案步骤（详细描述）",
+  "core_invention": "核心发明构思（详细描述）"
+}
+
+若字段无法确定则输出空字符串。请仅返回JSON，不要包含其他内容。`
 
 export default function Step1Page() {
+  const searchParams = useSearchParams()
   const router = useRouter()
   const supabase = createClient()
 
@@ -31,11 +42,21 @@ export default function Step1Page() {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [documentId, setDocumentId] = useState<string | null>(null)
+  const urlDocId = searchParams.get('documentId')
   const [document, setDocument] = useState<PatentDocument | null>(null)
   const [parsing, setParsing] = useState(false)
+  const [parseError, setParseError] = useState<string | null>(null)
 
   useEffect(() => {
     async function init() {
+      // 如果 URL 中提供了 documentId，直接加载已有文档
+      if (urlDocId) {
+        setDocumentId(urlDocId)
+        const docRes = await fetch(`/api/documents/${urlDocId}`)
+        const loadedDoc: PatentDocument = await docRes.json()
+        setDocument(loadedDoc)
+      }
+
       const [modelsRes, prefsRes] = await Promise.all([
         fetch('/api/models').then(r => r.json()),
         fetch('/api/preferences').then(r => r.json()),
@@ -62,10 +83,36 @@ export default function Step1Page() {
           const updated = payload.new as PatentDocument
           setDocument(updated)
           if (updated.parse_status !== 'parsing') setParsing(false)
+          if (updated.parse_status === 'failed') setParseError('文档解析失败，请重试')
         })
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          setParseError('实时连接失败，请刷新页面重试')
+          setParsing(false)
+        } else if (status === 'TIMED_OUT') {
+          setParseError('实时连接超时，请刷新页面重试')
+          setParsing(false)
+        }
+      })
     return () => { supabase.removeChannel(channel) }
   }, [documentId])
+
+  // 偏好模式：解析完成后自动跳转 step-3
+  useEffect(() => {
+    if (!autoMode || !documentId || !preferences || document?.parse_status !== 'done') return
+    const step3Config = {
+      documentId,
+      modelIds: preferences.search_model_ids,
+      strategyIds: preferences.strategy_ids,
+      perTaskLimit: preferences.per_task_limit,
+      reportLimit: preferences.report_limit,
+      reportModelId: preferences.report_model_id,
+      reportSystemPrompt: preferences.report_system_prompt,
+      featureOverrides: [],
+    }
+    sessionStorage.setItem('step3-config', JSON.stringify(step3Config))
+    router.push(`/search/new/step-3?documentId=${documentId}&auto=1`)
+  }, [autoMode, document?.parse_status, documentId, preferences, router])
 
   async function handleFileSelect(file: File) {
     if (selectedModelIds.length === 0) return
@@ -86,7 +133,10 @@ export default function Step1Page() {
       setDocumentId(newDocId); setParsing(true)
       const docRes = await fetch(`/api/documents/${newDocId}`)
       setDocument(await docRes.json())
-    } catch (err) { console.error('上传失败:', err) }
+    } catch (err) {
+      console.error('上传失败:', err)
+      toast.error('文件上传失败', { description: err instanceof Error ? err.message : '请检查文件格式和网络连接后重试' })
+    }
     finally { setUploading(false) }
   }
 
@@ -104,12 +154,18 @@ export default function Step1Page() {
   function handleNext() {
     if (!documentId) return
     if (autoMode && preferences) {
-      const p = new URLSearchParams({
-        documentId, modelIds: preferences.search_model_ids.join(','), strategyIds: preferences.strategy_ids.join(','),
-        perTaskLimit: String(preferences.per_task_limit), reportLimit: String(preferences.report_limit),
-        reportModelId: preferences.report_model_id, reportSystemPrompt: preferences.report_system_prompt, auto: '1',
-      })
-      router.push(`/search/new/step-3?${p}`)
+      const step3Config = {
+        documentId,
+        modelIds: preferences.search_model_ids,
+        strategyIds: preferences.strategy_ids,
+        perTaskLimit: preferences.per_task_limit,
+        reportLimit: preferences.report_limit,
+        reportModelId: preferences.report_model_id,
+        reportSystemPrompt: preferences.report_system_prompt,
+        featureOverrides: [],
+      }
+      sessionStorage.setItem('step3-config', JSON.stringify(step3Config))
+      router.push(`/search/new/step-3?documentId=${documentId}&auto=1`)
     } else {
       router.push(`/search/new/step-2?documentId=${documentId}`)
     }
@@ -119,15 +175,15 @@ export default function Step1Page() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <WizardProgress currentStep={1} />
-      <div className="space-y-6">
+      <WizardProgress currentStep={1} documentId={documentId ?? undefined} />
+      <div className="space-y-5">
         {preferences !== null && (
           <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-600">模式：</span>
-            <div className="flex rounded-md border border-slate-200 overflow-hidden">
+            <span className="text-sm font-medium text-muted-foreground">模式</span>
+            <div className="flex rounded-lg bg-muted p-0.5">
               {(['手动配置', '使用偏好配置'] as const).map((label, i) => (
                 <button key={label} type="button" onClick={() => setAutoMode(i === 1)}
-                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${(i === 1) === autoMode ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'} ${i > 0 ? 'border-l border-slate-200' : ''}`}>
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${(i === 1) === autoMode ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                   {label}
                 </button>
               ))}
@@ -135,33 +191,34 @@ export default function Step1Page() {
           </div>
         )}
 
-        <section className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700">① 选择解析模型</h3>
+        <section className="card-apple p-4 sm:p-5 space-y-4">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">① 选择解析模型</h3>
           <ModelSelector models={parseModels} mode="parse" selectedIds={selectedModelIds} onChange={setSelectedModelIds} />
           <PromptEditor label="编辑解析提示词" value={parsePrompt} onChange={setParsePrompt} />
         </section>
 
-        <section className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700">② 选择专利文献</h3>
+        <section className="card-apple p-5 space-y-4">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">② 选择专利文献</h3>
           <FileUploadZone onFileSelect={handleFileSelect} uploading={uploading} uploadProgress={uploadProgress} disabled={selectedModelIds.length === 0 || !!documentId} />
           {selectedModelIds.length === 0 && <p className="text-xs text-amber-600">请先选择解析模型再上传文件</p>}
           <HistoryDocPicker documents={historyDocs} onSelect={handleHistoryDocSelect} disabled={!!documentId} />
         </section>
 
         {documentId && (
-          <section className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+          <section className="card-apple p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-700">③ 解析结果</h3>
-              {parsing && <span className="flex items-center gap-1.5 text-xs text-blue-600"><Loader2 size={14} className="animate-spin" />解析中...</span>}
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">③ 解析结果</h3>
+              {parsing && <span className="flex items-center gap-1.5 text-xs text-primary"><Loader2 size={14} className="animate-spin" />解析中...</span>}
             </div>
-            {document && document.parse_status !== 'pending' && (
+            {parseError && <p className="text-xs text-red-600">{parseError}</p>}
+            {document && document.parse_status === 'done' && (
               <ParseResultForm document={document} onSave={handleSaveParsedData} />
             )}
           </section>
         )}
 
-        <div className="flex justify-end">
-          <Button onClick={handleNext} disabled={document?.parse_status !== 'done'}>下一步 →</Button>
+        <div className="flex justify-end pt-2">
+          <Button onClick={handleNext} disabled={document?.parse_status !== 'done'} size="lg">下一步 →</Button>
         </div>
       </div>
     </div>

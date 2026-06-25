@@ -1,4 +1,4 @@
-// components/report/document-list.tsx
+﻿// components/report/document-list.tsx
 'use client'
 
 import { useMemo } from 'react'
@@ -71,9 +71,9 @@ export function DocumentList({
   return (
     <div className="flex flex-col h-full">
       {/* 摘要 */}
-      <div className="p-4 border-b border-slate-200 bg-white">
-        <h2 className="text-sm font-semibold text-slate-700 mb-2">文献列表</h2>
-        <p className="text-xs text-slate-500">
+      <div className="p-4 border-b border-white/[0.08] bg-white">
+        <h2 className="text-sm font-semibold text-foreground mb-1">文献列表</h2>
+        <p className="text-xs text-muted-foreground">
           共 {documents.length} 篇
           {filter !== 'all' && ` · ${filteredDocs.length} 篇符合筛选`}
         </p>
@@ -82,7 +82,7 @@ export function DocumentList({
       {/* 列表 */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {filteredDocs.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-8">
+          <p className="text-sm text-muted-foreground text-center py-8">
             {filter === 'all' ? '暂无文献' : `没有${filter === 'useful' ? '有用' : '不相关'}的文献`}
           </p>
         ) : (
@@ -103,9 +103,9 @@ export function DocumentList({
       </div>
 
       {/* 筛选和排序 */}
-      <div className="p-3 border-t border-slate-200 bg-white flex gap-2">
+      <div className="p-3 border-t border-white/[0.08] bg-white flex gap-2">
         <Select value={filter} onValueChange={(v) => onFilterChange(v as 'all' | 'useful' | 'irrelevant')}>
-          <SelectTrigger className="h-8 text-xs w-24">
+          <SelectTrigger className="h-8 text-xs w-24 rounded-lg">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -116,7 +116,7 @@ export function DocumentList({
         </Select>
 
         <Select value={sortBy} onValueChange={(v) => onSortChange(v as 'rank' | 'platform' | 'rating')}>
-          <SelectTrigger className="h-8 text-xs w-24">
+          <SelectTrigger className="h-8 text-xs w-24 rounded-lg">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

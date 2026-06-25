@@ -23,13 +23,16 @@ export async function PUT(
   const body = await request.json()
   const admin = createServiceClient()
 
-  if (existing.is_builtin) {
+  // 系统内置模型（owner_id 为空）仅允许更新 API Key
+  if (!existing.owner_id) {
     if (!body.api_key) return Response.json({ error: '内置模型只支持更新 API Key' }, { status: 400 })
     const { data, error } = await admin.from('ai_models').update({ api_key_encrypted: body.api_key }).eq('id', modelId).select().single()
     if (error) return Response.json({ error: error.message }, { status: 500 })
-    return Response.json(data)
+    const { api_key_encrypted: _, ...safeData } = data as Record<string, unknown>
+    return Response.json(safeData)
   }
 
+  // 用户自定义模型：验证归属
   if (existing.owner_id !== user.id) {
     return Response.json({ error: '无权修改此模型' }, { status: 403 })
   }
@@ -51,7 +54,8 @@ export async function PUT(
 
   const { data, error } = await admin.from('ai_models').update(updates).eq('id', modelId).select().single()
   if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json(data)
+  const { api_key_encrypted: _, ...safeData } = data as Record<string, unknown>
+  return Response.json(safeData)
 }
 
 export async function DELETE(
@@ -70,7 +74,7 @@ export async function DELETE(
     .single()
 
   if (!existing) return Response.json({ error: '模型不存在' }, { status: 404 })
-  if (existing.is_builtin || existing.owner_id !== user.id) {
+  if (!existing.owner_id || existing.owner_id !== user.id) {
     return Response.json({ error: '无权删除此模型' }, { status: 403 })
   }
 

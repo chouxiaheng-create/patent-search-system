@@ -1,10 +1,11 @@
-// components/report/document-card.tsx
+﻿// components/report/document-card.tsx
 'use client'
 
 import { useState } from 'react'
-import { ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, MessageSquare, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 
 interface DocumentCardProps {
   doc: {
@@ -51,28 +52,30 @@ export function DocumentCard({
   return (
     <div
       className={cn(
-        'border rounded-lg p-3 cursor-pointer transition-all',
-        isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-white hover:shadow-sm',
-        doc.user_rating === 'useful' && 'border-l-4 border-l-green-500',
-        doc.user_rating === 'irrelevant' && 'border-l-4 border-l-red-400'
+        'border rounded-xl p-3 cursor-pointer transition-all duration-200',
+        isSelected
+          ? 'ring-2 ring-primary bg-primary/5 border-primary/30'
+          : 'bg-white border-white/[0.08] hover:shadow-sm',
+        doc.user_rating === 'useful' && 'border-l-4 border-l-[#34c759]',
+        doc.user_rating === 'irrelevant' && 'border-l-4 border-l-destructive'
       )}
       onClick={onSelect}
     >
       {/* 标题和排名 */}
       <div className="flex items-start gap-2 mb-2">
-        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-medium flex items-center justify-center">
+        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center">
           {doc.rank}
         </span>
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-medium text-slate-800 line-clamp-2">
+          <h4 className="text-sm font-medium text-foreground line-clamp-2">
             {doc.title}
           </h4>
           <div className="flex items-center gap-1 mt-1">
-            <span className="text-xs px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">
+            <span className="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground rounded-md">
               {doc.source_platform}
             </span>
-            <span className="text-xs text-slate-400">×</span>
-            <span className="text-xs px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">
+            <span className="text-xs text-muted-foreground/50">×</span>
+            <span className="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground rounded-md">
               {doc.source_strategy}
             </span>
           </div>
@@ -81,7 +84,7 @@ export function DocumentCard({
 
       {/* 作者和日期 */}
       {(doc.authors || doc.pub_date) && (
-        <p className="text-xs text-slate-500 mb-2">
+        <p className="text-xs text-muted-foreground mb-2">
           {doc.authors && <span>{doc.authors}</span>}
           {doc.authors && doc.pub_date && <span> · </span>}
           {doc.pub_date && <span>{doc.pub_date}</span>}
@@ -90,21 +93,35 @@ export function DocumentCard({
 
       {/* 相关描述 */}
       {doc.relevance_desc && (
-        <p className="text-xs text-slate-600 mb-2 line-clamp-2">
+        <p className="text-xs text-foreground/70 mb-2 line-clamp-2">
           {doc.relevance_desc}
         </p>
       )}
 
+      {/* 查看原文链接 */}
+      {doc.url && (
+        <a
+          href={doc.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 text-xs text-primary hover:underline mb-2"
+        >
+          <ExternalLink size={12} />
+          查看原文
+        </a>
+      )}
+
       {/* 操作按钮 */}
-      <div className="flex items-center gap-1 mt-2">
+      <div className="flex items-center gap-1.5 mt-2">
         <Button
           size="sm"
           variant="ghost"
           className={cn(
-            'h-7 px-2',
+            'h-8 px-2.5 rounded-lg',
             doc.user_rating === 'useful'
-              ? 'text-green-600 bg-green-50 hover:bg-green-100'
-              : 'text-slate-400 hover:text-green-600'
+              ? 'text-emerald-600 bg-[#34c759]/[0.08] hover:bg-[#34c759]/[0.12]'
+              : 'text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50'
           )}
           onClick={(e) => { e.stopPropagation(); handleRate('useful') }}
         >
@@ -114,10 +131,10 @@ export function DocumentCard({
           size="sm"
           variant="ghost"
           className={cn(
-            'h-7 px-2',
+            'h-8 px-2.5 rounded-lg',
             doc.user_rating === 'irrelevant'
-              ? 'text-red-500 bg-red-50 hover:bg-red-100'
-              : 'text-slate-400 hover:text-red-500'
+              ? 'text-red-600 bg-destructive/10 hover:bg-destructive/15'
+              : 'text-muted-foreground hover:text-red-600 hover:bg-red-50'
           )}
           onClick={(e) => { e.stopPropagation(); handleRate('irrelevant') }}
         >
@@ -127,8 +144,8 @@ export function DocumentCard({
           size="sm"
           variant="ghost"
           className={cn(
-            'h-7 px-2 ml-auto',
-            showNote || note ? 'text-blue-600' : 'text-slate-400'
+            'h-8 px-2.5 rounded-lg ml-auto',
+            showNote || note ? 'text-primary' : 'text-muted-foreground'
           )}
           onClick={(e) => { e.stopPropagation(); setShowNote(!showNote) }}
         >
@@ -138,19 +155,19 @@ export function DocumentCard({
 
       {/* 备注输入框 */}
       {showNote && (
-        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-          <textarea
+        <div className="mt-2.5" onClick={(e) => e.stopPropagation()}>
+          <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="添加备注..."
-            className="w-full text-xs border rounded p-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="text-xs min-h-[60px] rounded-xl"
             rows={2}
           />
-          <div className="flex justify-end gap-1 mt-1">
-            <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setShowNote(false)}>
+          <div className="flex justify-end gap-1.5 mt-1.5">
+            <Button size="sm" variant="ghost" className="h-7 text-xs rounded-lg" onClick={() => setShowNote(false)}>
               取消
             </Button>
-            <Button size="sm" className="h-6 text-xs" onClick={handleNoteSave} disabled={saving}>
+            <Button size="sm" className="h-7 text-xs rounded-lg" onClick={handleNoteSave} disabled={saving}>
               {saving ? '保存中...' : '保存'}
             </Button>
           </div>

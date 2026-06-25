@@ -56,3 +56,11 @@ worker/dist
 
 # Worker build output
 worker/dist/
+
+# Log files
+*.log
+worker.log
+frontend.log
+
+# Ad-hoc test scripts
+test-*.js

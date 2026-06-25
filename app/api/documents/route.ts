@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/admin'
-import { getBossClient } from '@/lib/boss-client'
+import { sendBossJob } from '@/lib/boss-client'
 import type { FileType } from '@/lib/supabase/types'
 
 export async function POST(request: NextRequest) {
@@ -27,8 +27,7 @@ export async function POST(request: NextRequest) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
-  const boss = await getBossClient()
-  await boss.send('parse-job', { documentId: data.id, parseModelId, parseSystemPrompt })
+  await sendBossJob('parse-job', { documentId: data.id, parseModelId, parseSystemPrompt })
 
   return Response.json({ documentId: data.id }, { status: 201 })
 }

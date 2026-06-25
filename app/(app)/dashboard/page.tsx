@@ -1,30 +1,10 @@
-// app/(app)/dashboard/page.tsx
+﻿// app/(app)/dashboard/page.tsx
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { FileText, Clock, CheckCircle2, AlertCircle, XCircle, Loader2 } from 'lucide-react'
-import type { JobStatus } from '@/lib/supabase/types'
-
-const statusConfig: Record<JobStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  queued: { label: '排队中', color: 'bg-slate-100 text-slate-700 border-slate-200', icon: <Clock size={12} /> },
-  running: { label: '执行中', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: <Loader2 size={12} className="animate-spin" /> },
-  completed: { label: '已完成', color: 'bg-green-100 text-green-700 border-green-200', icon: <CheckCircle2 size={12} /> },
-  failed: { label: '失败', color: 'bg-red-100 text-red-700 border-red-200', icon: <AlertCircle size={12} /> },
-  cancelled: { label: '已取消', color: 'bg-slate-100 text-slate-500 border-slate-200', icon: <XCircle size={12} /> },
-}
-
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { Search } from 'lucide-react'
+import { DashboardJobCard } from '@/components/dashboard-job-card'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -32,77 +12,93 @@ export default async function DashboardPage() {
 
   if (!user) return null
 
-  // Fetch user's jobs with document info
+  // Fetch user's jobs with config
   const { data: jobs } = await supabase
     .from('search_jobs')
     .select(`
-      id,
-      status,
-      created_at,
-      started_at,
-      completed_at,
-      scheduled_at,
-      document:patent_documents (
-        title
-      )
+      id, status, created_at, started_at, completed_at, scheduled_at, config,
+      document:patent_documents ( title )
     `)
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(20)
 
+  const jobIds = (jobs || []).map(j => j.id)
+
+  // Fetch task summaries
+  const { data: taskSummaries } = jobIds.length > 0
+    ? await supabase.from('search_tasks').select('job_id, status, results, model_id, strategy_id').in('job_id', jobIds)
+    : { data: [] as Record<string, unknown>[] }
+
+  // Fetch model and strategy names
+  const allModelIds = [...new Set((taskSummaries || []).map(t => t.model_id))]
+  const allStrategyIds = [...new Set((taskSummaries || []).map(t => t.strategy_id))]
+
+  // Also fetch report model names from job configs
+  const reportModelIds = [...new Set((jobs || []).map(j => j.config?.report_model_id).filter(Boolean))]
+  const combinedModelIds = [...new Set([...allModelIds, ...reportModelIds])]
+
+  const [{ data: modelNames }, { data: strategyNames }] = await Promise.all([
+    combinedModelIds.length > 0 ? supabase.from('ai_models').select('id, name').in('id', combinedModelIds) : { data: [] as Record<string, unknown>[] },
+    allStrategyIds.length > 0 ? supabase.from('search_strategies').select('id, name').in('id', allStrategyIds) : { data: [] as Record<string, unknown>[] },
+  ])
+  const modelNameMap = new Map((modelNames || []).map(m => [m.id, m.name]))
+  const strategyNameMap = new Map((strategyNames || []).map(s => [s.id, s.name]))
+
+  // Group tasks by job_id
+  const tasksByJob = new Map<string, Record<string, unknown>[]>()
+  for (const task of taskSummaries || []) {
+    if (!tasksByJob.has(task.job_id)) tasksByJob.set(task.job_id, [])
+    tasksByJob.get(task.job_id)!.push(task)
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-slate-800">我的检索任务</h2>
-        <Button asChild>
+        <h2 className="text-xl font-semibold text-foreground">我的检索任务</h2>
+        <Button asChild className="rounded-xl">
           <Link href="/search/new/step-1">新建检索</Link>
         </Button>
       </div>
 
       {!jobs || jobs.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FileText size={48} className="mx-auto text-slate-300 mb-4" />
-            <p className="text-slate-500 mb-2">暂无检索任务</p>
-            <p className="text-sm text-slate-400">点击上方按钮创建第一个专利检索任务</p>
+        <Card className="card-apple">
+          <CardContent className="py-16 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <Search size={28} className="text-primary" />
+            </div>
+            <p className="text-foreground font-medium mb-1">暂无检索任务</p>
+            <p className="text-sm text-muted-foreground mb-5">点击上方按钮创建第一个专利检索任务</p>
+            <Button asChild className="rounded-xl">
+              <Link href="/search/new/step-1">开始检索</Link>
+            </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
           {jobs.map((job) => {
-            const config = statusConfig[job.status as JobStatus]
             const docTitle = job.document && typeof job.document === 'object' && 'title' in job.document
-              ? String(job.document.title)
-              : '未知文档'
+              ? String(job.document.title) : '未知文档'
+
+            const tasks = tasksByJob.get(job.id) || []
+            const totalResults = tasks.reduce((sum, t) => sum + (Array.isArray(t.results) ? t.results.length : 0), 0)
+            const platformNames = [...new Set(tasks.map(t => modelNameMap.get(t.model_id) as string).filter(Boolean))].slice(0, 2)
+            const strategyNames = [...new Set(tasks.map(t => strategyNameMap.get(t.strategy_id) as string).filter(Boolean))].slice(0, 2)
+            const reportModelName = modelNameMap.get(job.config?.report_model_id) ?? '未知模型'
 
             return (
-              <Card key={job.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium text-slate-800 truncate">{docTitle}</h3>
-                        <Badge
-                          variant="outline"
-                          className={`flex items-center gap-1 ${config.color}`}
-                        >
-                          {config.icon}
-                          {config.label}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-slate-500">
-                        创建于 {formatDate(job.created_at)}
-                        {job.started_at && ` · 开始于 ${formatDate(job.started_at)}`}
-                      </p>
-                    </div>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/search/${job.id}/progress`}>
-                        查看进度
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <DashboardJobCard
+                key={job.id}
+                job={job}
+                docTitle={docTitle}
+                tasks={tasks as Array<{ status: string; results: unknown[] | null; model_id: string; strategy_id: string }>}
+                totalResults={totalResults}
+                platformNames={platformNames}
+                strategyNames={strategyNames}
+                modelNameMap={modelNameMap}
+                strategyNameMap={strategyNameMap}
+                reportModelName={reportModelName}
+              />
             )
           })}
         </div>

@@ -9,7 +9,7 @@ export async function GET(_request: NextRequest) {
 
   const { data, error } = await supabase
     .from('ai_models')
-    .select('*')
+    .select('id, owner_id, name, api_base_url, model_id, is_builtin, usage_types, capabilities, adapter_config, created_at')
     .or(`owner_id.is.null,owner_id.eq.${user.id}`)
     .order('is_builtin', { ascending: false })
     .order('name')
@@ -56,5 +56,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json(data, { status: 201 })
+  // 响应中剔除 api_key_encrypted
+  const { api_key_encrypted: _, ...safeData } = data as Record<string, unknown>
+  return Response.json(safeData, { status: 201 })
 }

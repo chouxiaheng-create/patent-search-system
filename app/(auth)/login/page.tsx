@@ -1,4 +1,4 @@
-// app/(auth)/login/page.tsx
+﻿// app/(auth)/login/page.tsx
 'use client'
 
 import { useState } from 'react'
@@ -76,9 +76,9 @@ export default function LoginPage() {
         </form>
       </CardContent>
       <CardFooter className="justify-center">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           还没有账号？{' '}
-          <Link href="/register" className="text-blue-600 hover:underline">
+          <Link href="/register" className="text-primary hover:underline">
             注册
           </Link>
         </p>

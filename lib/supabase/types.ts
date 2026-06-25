@@ -137,27 +137,32 @@ export interface SearchTask {
   completed_at: string | null
 }
 
+export interface ReportDoc {
+  rank: number
+  title: string
+  authors: string
+  url: string
+  pub_date: string
+  relevance_desc: string
+  citation_gb: string
+  source_platform: string
+  source_strategy: string
+  source_task_id: string
+  user_rating: 'useful' | 'irrelevant' | null
+  user_note: string
+}
+
 export interface Report {
   id: string
   job_id: string
   user_id: string
   html_content: string
-  selected_docs: Array<{
-    rank: number
-    title: string
-    authors: string
-    url: string
-    pub_date: string
-    relevance_desc: string
-    citation_gb: string
-    source_platform: string
-    source_strategy: string
-    source_task_id: string
-    user_rating: 'useful' | 'irrelevant' | null
-  }>
+  selected_docs: ReportDoc[]
   doc_count: number
   path_summary: Record<string, unknown>
   created_at: string
+  /** 关联的文档信息（API 返回时可能包含） */
+  document?: { id: string; title: string }
 }
 
 export interface Notification {

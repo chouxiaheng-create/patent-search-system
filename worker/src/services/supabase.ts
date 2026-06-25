@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import type { AIModelRecord, SearchStrategyRecord } from '../types'
 
 const supabaseUrl = process.env.SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -19,26 +20,7 @@ export async function downloadFile(fileUrl: string): Promise<Buffer> {
   return Buffer.from(arrayBuffer)
 }
 
-export interface AIModelRecord {
-  id: string
-  owner_id: string | null
-  name: string
-  api_base_url: string
-  api_key_encrypted: string
-  model_id: string
-  is_builtin: boolean
-  usage_types: string[]
-  adapter_config: {
-    provider: 'openai_compat' | 'metaso'
-    web_search_method: 'tools_builtin' | 'tools_web_search' | 'extra_body' | 'native' | 'none'
-    web_search_tool_name?: string
-    thinking_method: 'param' | 'model_switch' | 'extra_body' | 'default_on' | 'none'
-    thinking_model_id?: string
-    web_search_disables_thinking: boolean
-    thinking_default_on: boolean
-  }
-  created_at: string
-}
+export type { AIModelRecord, SearchStrategyRecord }
 
 export async function getModel(modelId: string): Promise<AIModelRecord> {
   const { data, error } = await supabase
@@ -49,15 +31,6 @@ export async function getModel(modelId: string): Promise<AIModelRecord> {
 
   if (error || !data) throw new Error(`获取模型失败: ${modelId}`)
   return data as AIModelRecord
-}
-
-export interface SearchStrategyRecord {
-  id: string
-  owner_id: string | null
-  name: string
-  prompt_template: string
-  is_builtin: boolean
-  created_at: string
 }
 
 export async function getStrategy(strategyId: string): Promise<SearchStrategyRecord> {
@@ -91,10 +64,6 @@ export async function getDocument(documentId: string) {
 
   if (error || !data) throw new Error(`获取文档失败: ${documentId}`)
   return data
-}
-
-export async function getDocumentById(documentId: string) {
-  return getDocument(documentId)
 }
 
 export async function updateDocument(documentId: string, updates: Record<string, unknown>) {
@@ -135,6 +104,17 @@ export async function getSearchTasks(jobId: string) {
 }
 
 export async function createSearchTasks(jobId: string, modelIds: string[], strategyIds: string[]) {
+  // 先检查是否已存在子任务（幂等性）
+  const { data: existing } = await supabase
+    .from('search_tasks')
+    .select('id, model_id, strategy_id, status, retry_count')
+    .eq('job_id', jobId)
+
+  if (existing && existing.length > 0) {
+    console.log(`[createSearchTasks] Job ${jobId} already has ${existing.length} tasks, skipping creation`)
+    return existing
+  }
+
   const tasks = modelIds.flatMap(modelId =>
     strategyIds.map(strategyId => ({
       job_id: jobId,

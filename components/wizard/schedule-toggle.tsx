@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -16,20 +16,22 @@ export function ScheduleToggle({ scheduledAt, onChange }: ScheduleToggleProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex rounded-md border border-slate-200 overflow-hidden w-fit">
+      <div className="flex rounded-lg bg-muted p-0.5 w-fit">
         <button type="button" onClick={setImmediate_}
-          className={cn('px-4 py-2 text-sm font-medium transition-colors', mode === 'immediate' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50')}>
+          className={cn('px-5 py-2 text-sm font-medium rounded-md transition-all duration-200',
+            mode === 'immediate' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
           立即提交
         </button>
         <button type="button" onClick={() => setMode('scheduled')}
-          className={cn('px-4 py-2 text-sm font-medium border-l border-slate-200 transition-colors', mode === 'scheduled' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50')}>
+          className={cn('px-5 py-2 text-sm font-medium rounded-md transition-all duration-200',
+            mode === 'scheduled' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
           定时执行
         </button>
       </div>
       {mode === 'scheduled' && (
         <input type="datetime-local" min={minDateTime} value={scheduledAt ?? ''}
           onChange={e => onChange(e.target.value ? new Date(e.target.value).toISOString() : null)}
-          className="block border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          className="block border border-border rounded-xl px-3.5 py-2 text-sm text-foreground bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary focus:bg-white transition-all duration-200" />
       )}
     </div>
   )

@@ -1,8 +1,8 @@
-// components/flow/job-sidebar.tsx
+﻿// components/flow/job-sidebar.tsx
 'use client'
 
 import type { JobStatus } from '@/lib/supabase/types'
-import { Calendar, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { Calendar, Clock, CheckCircle, XCircle, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -18,12 +18,21 @@ interface JobSidebarProps {
   cancelling?: boolean
 }
 
+function formatDuration(ms: number): string {
+  if (ms < 0) return ""
+  if (ms < 1000) return Math.round(ms) + "ms"
+  if (ms < 60000) return (ms / 1000).toFixed(1) + "s"
+  const minutes = Math.floor(ms / 60000)
+  const seconds = Math.floor((ms % 60000) / 1000)
+  return minutes + "m " + seconds + "s"
+}
+
 const statusConfig = {
   queued: { label: '排队中', color: 'text-amber-600', bg: 'bg-amber-50' },
-  running: { label: '执行中', color: 'text-blue-600', bg: 'bg-blue-50' },
-  completed: { label: '已完成', color: 'text-green-600', bg: 'bg-green-50' },
+  running: { label: '执行中', color: 'text-primary', bg: 'bg-primary/[0.06]' },
+  completed: { label: '已完成', color: 'text-emerald-600', bg: 'bg-emerald-50' },
   failed: { label: '失败', color: 'text-red-600', bg: 'bg-red-50' },
-  cancelled: { label: '已取消', color: 'text-slate-600', bg: 'bg-slate-50' },
+  cancelled: { label: '已取消', color: 'text-muted-foreground', bg: 'bg-muted' },
 }
 
 export function JobSidebar({
@@ -40,13 +49,13 @@ export function JobSidebar({
   const canCancel = status === 'queued' || status === 'running'
 
   return (
-    <div className="w-72 bg-white border-l border-slate-200 p-4">
-      <h3 className="text-sm font-semibold text-slate-700 mb-4">任务详情</h3>
+    <div className="w-72 bg-white border-l border-white/[0.08] p-4">
+      <h3 className="text-sm font-semibold text-foreground mb-4">任务详情</h3>
 
       <div className="space-y-4">
         {/* 状态 */}
-        <div className={cn('rounded-lg p-3', config.bg)}>
-          <div className="text-xs text-slate-500 mb-1">状态</div>
+        <div className={cn('rounded-xl p-3', config.bg)}>
+          <div className="text-xs text-muted-foreground mb-1">状态</div>
           <div className={cn('text-sm font-medium', config.color)}>
             {config.label}
           </div>
@@ -54,11 +63,11 @@ export function JobSidebar({
 
         {/* 创建时间 */}
         <div>
-          <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
             <Calendar size={12} />
             <span>创建时间</span>
           </div>
-          <div className="text-sm text-slate-700">
+          <div className="text-sm text-foreground">
             {new Date(createdAt).toLocaleString('zh-CN')}
           </div>
         </div>
@@ -66,12 +75,28 @@ export function JobSidebar({
         {/* 开始时间 */}
         {startedAt && (
           <div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <Clock size={12} />
               <span>开始时间</span>
             </div>
-            <div className="text-sm text-slate-700">
+            <div className="text-sm text-foreground">
               {new Date(startedAt).toLocaleString('zh-CN')}
+            </div>
+          </div>
+        )}
+
+        {/* 总耗时 */}
+        {(startedAt || completedAt) && (
+          <div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+              <Clock size={12} />
+              <span>总耗时</span>
+            </div>
+            <div className="text-sm font-medium text-foreground">
+              {formatDuration(
+                (completedAt ? new Date(completedAt).getTime() : Date.now()) -
+                (startedAt ? new Date(startedAt).getTime() : 0)
+              )}
             </div>
           </div>
         )}
@@ -79,15 +104,15 @@ export function JobSidebar({
         {/* 完成时间 */}
         {completedAt && (
           <div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               {status === 'completed' ? (
-                <CheckCircle size={12} className="text-green-500" />
+                <CheckCircle size={12} className="text-emerald-600" />
               ) : (
-                <XCircle size={12} className="text-red-500" />
+                <XCircle size={12} className="text-red-600" />
               )}
               <span>{status === 'completed' ? '完成时间' : '失败时间'}</span>
             </div>
-            <div className="text-sm text-slate-700">
+            <div className="text-sm text-foreground">
               {new Date(completedAt).toLocaleString('zh-CN')}
             </div>
           </div>
@@ -96,11 +121,11 @@ export function JobSidebar({
         {/* 文献数量 */}
         {status === 'completed' && docCount !== undefined && (
           <div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-              <AlertCircle size={12} />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+              <FileText size={12} />
               <span>对比文献</span>
             </div>
-            <div className="text-sm text-slate-700">{docCount} 篇</div>
+            <div className="text-sm text-foreground">{docCount} 篇</div>
           </div>
         )}
       </div>
@@ -110,7 +135,7 @@ export function JobSidebar({
         {canCancel && (
           <Button
             variant="outline"
-            className="w-full text-red-600 border-red-200 hover:bg-red-50"
+            className="w-full text-red-600 border-destructive/20 hover:bg-red-50 rounded-xl"
             onClick={onCancel}
             disabled={cancelling}
           >
@@ -120,12 +145,12 @@ export function JobSidebar({
 
         {status === 'completed' && (
           <Link href={`/search/${jobId}/report`}>
-            <Button className="w-full">查看报告</Button>
+            <Button className="w-full rounded-xl">查看报告</Button>
           </Link>
         )}
 
         <Link href="/dashboard">
-          <Button variant="ghost" className="w-full">返回列表</Button>
+          <Button variant="ghost" className="w-full rounded-xl">返回列表</Button>
         </Link>
       </div>
     </div>

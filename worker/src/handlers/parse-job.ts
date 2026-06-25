@@ -1,9 +1,10 @@
-import type { Job } from 'pg-boss'
+﻿import type { Job } from 'pg-boss'
 import { parseFile, FileType } from '../parsers'
-import { getModel, updateDocument, getDocumentById, downloadFile } from '../services/supabase'
+import { getModel, updateDocument, getDocument, downloadFile } from '../services/supabase'
 import { sendNotification } from '../services/notification'
 import { buildParsePrompt, extractParsedData } from '../utils/prompt'
 import { createAdapter } from '../adapters'
+import { callWithRetry } from '../utils/retry'
 
 interface ParseJobData {
   documentId: string
@@ -19,7 +20,7 @@ export async function handleParseJob(jobs: Job<ParseJobData>[]): Promise<void> {
 
   try {
     // 1. 获取文档信息
-    const doc = await getDocumentById(documentId)
+    const doc = await getDocument(documentId)
     const userId = doc.user_id
 
     // 2. 更新状态为 'parsing'
@@ -36,12 +37,12 @@ export async function handleParseJob(jobs: Job<ParseJobData>[]): Promise<void> {
     const adapter = createAdapter(model)
 
     const parsePrompt = buildParsePrompt(parseResult.text, parseSystemPrompt)
-    const aiResult = await adapter.call({
+    const aiResult = await callWithRetry(() => adapter.call({
       modelId: model.model_id,
       prompt: parsePrompt,
       enableThinking: true,
-      timeout: 600000
-    })
+      timeout: 300000
+    }), { maxRetries: 3, baseDelayMs: 2000 })
 
     if (!aiResult.success) {
       throw new Error(`AI解析失败: ${aiResult.error}`)
@@ -62,7 +63,7 @@ export async function handleParseJob(jobs: Job<ParseJobData>[]): Promise<void> {
     const message = parseResult.qualityWarning
       ? `文档 "${doc.title}" 解析完成，请人工审查解析结果`
       : `文档 "${doc.title}" 解析完成`
-    await sendNotification(userId, 'parse_done', message, documentId)
+    await sendNotification(userId, 'parse_done', message)
 
     console.log(`[parse-job] Completed job ${job.id}, status: ${newStatus}`)
 
@@ -74,9 +75,9 @@ export async function handleParseJob(jobs: Job<ParseJobData>[]): Promise<void> {
     await updateDocument(documentId, { parse_status: 'failed' }).catch(() => {})
 
     // 获取用户 ID 发送通知
-    const doc = await getDocumentById(documentId).catch(() => null)
+    const doc = await getDocument(documentId).catch(() => null)
     if (doc) {
-      await sendNotification(doc.user_id, 'parse_failed', `文档 "${doc.title}" 解析失败: ${message}`, documentId)
+      await sendNotification(doc.user_id, 'parse_failed', `文档 "${doc.title}" 解析失败: ${message}`)
     }
 
     throw error

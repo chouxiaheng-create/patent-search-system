@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'
@@ -45,7 +45,7 @@ export function StrategySheet({ strategy, open, onOpenChange, onSave, onSaveAs, 
           </div>
           <div className="space-y-1">
             <Label htmlFor="s-prompt">提示词模板</Label>
-            <p className="text-xs text-slate-500">可用变量：{`{{tech_theme}}`}、{`{{applicant}}`}、{`{{inventor}}`}、{`{{filing_date}}`}、{`{{main_tech_steps}}`}、{`{{core_invention}}`}</p>
+            <p className="text-xs text-muted-foreground">可用变量：{`{{tech_theme}}`}、{`{{applicant}}`}、{`{{inventor}}`}、{`{{filing_date}}`}、{`{{main_tech_steps}}`}、{`{{core_invention}}`}</p>
             <Textarea id="s-prompt" value={prompt} readOnly={isBuiltin && !isNew} rows={8} onChange={e => setPrompt(e.target.value)} className="font-mono text-sm" />
           </div>
         </div>

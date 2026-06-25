@@ -1,4 +1,4 @@
-// components/flow/nodes/parse-node.tsx
+﻿// components/flow/nodes/parse-node.tsx
 'use client'
 
 import { memo } from 'react'
@@ -12,11 +12,11 @@ interface ParseNodeData extends Record<string, unknown> {
 }
 
 const statusConfig: Record<string, { color: string; bg: string; border: string; icon: typeof Clock; label: string; animate?: boolean }> = {
-  pending: { color: 'text-slate-400', bg: 'bg-slate-100', border: 'border-slate-200', icon: Clock, label: '等待中' },
-  parsing: { color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-300', icon: Loader2, label: '解析中', animate: true },
-  done: { color: 'text-green-500', bg: 'bg-green-50', border: 'border-green-300', icon: Check, label: '已完成' },
-  needs_review: { color: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-300', icon: AlertCircle, label: '需人工审查' },
-  failed: { color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-300', icon: AlertCircle, label: '解析失败' },
+  pending: { color: 'text-muted-foreground', bg: 'bg-muted', border: 'border-border', icon: Clock, label: '等待中' },
+  parsing: { color: 'text-primary', bg: 'bg-primary/5', border: 'border-primary/30', icon: Loader2, label: '解析中', animate: true },
+  done: { color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: Check, label: '已完成' },
+  needs_review: { color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', icon: AlertCircle, label: '需人工审查' },
+  failed: { color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', icon: AlertCircle, label: '解析失败' },
 }
 
 export const ParseNode = memo(function ParseNode({ data }: Node<ParseNodeData>) {
@@ -25,7 +25,7 @@ export const ParseNode = memo(function ParseNode({ data }: Node<ParseNodeData>) 
 
   return (
     <div className={cn(
-      'min-w-[180px] rounded-lg border-2 p-3 shadow-sm transition-all',
+      'min-w-[180px] rounded-xl border-2 p-3 shadow-sm transition-all',
       config.bg,
       config.border
     )}>
@@ -36,9 +36,9 @@ export const ParseNode = memo(function ParseNode({ data }: Node<ParseNodeData>) 
           <Icon size={18} className={cn(config.animate && 'animate-spin')} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-slate-700">文献解析</div>
-          <div className="text-xs text-slate-500 truncate mt-0.5">{data.title}</div>
-          <div className={cn('text-xs mt-1', config.color)}>{config.label}</div>
+          <div className="text-sm font-medium text-foreground">文献解析</div>
+          <div className="text-xs text-muted-foreground truncate mt-0.5">{data.title}</div>
+          <div className={cn('text-xs mt-1 font-medium', config.color)}>{config.label}</div>
         </div>
       </div>
     </div>

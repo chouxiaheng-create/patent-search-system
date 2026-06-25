@@ -1,4 +1,4 @@
-// components/flow/nodes/report-node.tsx
+﻿// components/flow/nodes/report-node.tsx
 'use client'
 
 import { memo } from 'react'
@@ -20,29 +20,29 @@ export const ReportNode = memo(function ReportNode({ data }: Node<ReportNodeData
 
   return (
     <div className={cn(
-      'min-w-[160px] rounded-lg border-2 p-3 shadow-sm transition-all',
-      isDone ? 'bg-green-50 border-green-300' : 'bg-slate-50 border-slate-200'
+      'min-w-[160px] rounded-xl border-2 p-3 shadow-sm transition-all',
+      isDone ? 'bg-emerald-50 border-emerald-200' : 'bg-muted border-border'
     )}>
       <Handle type="target" position={Position.Left} className="w-2 h-2" />
 
       <div className="flex items-start gap-2">
-        <div className={cn('mt-0.5', isDone ? 'text-green-500' : 'text-slate-400')}>
-          {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <BarChart3 size={16} />}
+        <div className={cn('mt-0.5', isDone ? 'text-emerald-600' : 'text-muted-foreground')}>
+          {isGenerating ? <Loader2 size={16} className="animate-spin text-primary" /> : <BarChart3 size={16} />}
         </div>
         <div className="flex-1">
-          <div className="text-sm font-medium text-slate-700">生成报告</div>
-          <div className={cn('text-xs mt-1', isDone ? 'text-green-600' : 'text-slate-400')}>
+          <div className="text-sm font-medium text-foreground">生成报告</div>
+          <div className={cn('text-xs mt-1 font-medium', isDone ? 'text-emerald-600' : 'text-muted-foreground')}>
             {isDone ? '报告已生成' : isGenerating ? '正在生成...' : '等待中'}
           </div>
           {isDone && data.docCount !== undefined && (
-            <div className="text-xs text-slate-500 mt-0.5">共 {data.docCount} 篇文献</div>
+            <div className="text-xs text-muted-foreground mt-0.5">共 {data.docCount} 篇文献</div>
           )}
         </div>
       </div>
 
       {isDone && (
         <Link href={`/search/${data.jobId}/report`} className="block mt-2">
-          <Button size="sm" variant="outline" className="w-full text-xs h-7">
+          <Button size="sm" variant="outline" className="w-full text-xs h-7 rounded-lg">
             查看报告
           </Button>
         </Link>

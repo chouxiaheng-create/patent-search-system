@@ -1,4 +1,4 @@
-// app/(auth)/register/page.tsx
+﻿// app/(auth)/register/page.tsx
 'use client'
 
 import { useState } from 'react'
@@ -95,9 +95,9 @@ export default function RegisterPage() {
         </form>
       </CardContent>
       <CardFooter className="justify-center">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           已有账号？{' '}
-          <Link href="/login" className="text-blue-600 hover:underline">
+          <Link href="/login" className="text-primary hover:underline">
             登录
           </Link>
         </p>

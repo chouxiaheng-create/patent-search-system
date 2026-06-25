@@ -1,7 +1,8 @@
-import { cn } from '@/lib/utils'
+﻿import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { HelpCircle } from 'lucide-react'
 import type { AIModel, ModelFeatureOverride } from '@/lib/supabase/types'
 
 function isSearchCapable(m: AIModel) { return m.capabilities.deep_reasoning && m.capabilities.web_search }
@@ -80,10 +81,13 @@ export function ModelSelector({
             const selected = selectedIds.includes(m.id)
             const chip = (
               <button key={m.id} type="button" disabled={!capable} onClick={() => toggle(m.id, !capable)}
-                className={cn('px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
-                  selected && capable ? 'bg-blue-600 border-blue-600 text-white'
-                  : capable ? 'bg-white border-slate-300 text-slate-700 hover:border-blue-400'
-                  : 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed'
+                className={cn(
+                  'px-4 py-2 rounded-full text-sm font-medium border transition-all duration-200',
+                  selected && capable
+                    ? 'bg-primary border-primary text-white shadow-sm'
+                    : capable
+                      ? 'bg-white border-border text-foreground hover:border-primary/50 hover:bg-muted active:scale-[0.97]'
+                      : 'bg-muted border-border text-muted-foreground cursor-not-allowed'
                 )}>
                 {m.name}
               </button>
@@ -108,14 +112,15 @@ export function ModelSelector({
               const canSearch = model.capabilities.web_search && model.adapter_config?.web_search_method !== 'none'
               const mutuallyExclusive = model.adapter_config?.web_search_disables_thinking ?? false
               return (
-                <div key={id} className="flex items-center gap-6 py-1.5 px-3 bg-blue-50 rounded-md text-sm">
-                  <span className="font-medium text-blue-800 w-28 shrink-0">{model.name}</span>
+                <div key={id} className="flex flex-wrap items-center gap-3 sm:gap-6 py-2 px-4 bg-muted rounded-2xl text-sm">
+                  <span className="font-semibold text-foreground w-28 shrink-0">{model.name}</span>
                   {canThink && (
                     <div className="flex items-center gap-1.5">
                       <Switch id={`think-${id}`}
                         checked={override?.enable_thinking ?? (model.adapter_config?.thinking_default_on ?? false)}
                         onCheckedChange={v => updateOverride(id, 'enable_thinking', v)} />
-                      <Label htmlFor={`think-${id}`} className="text-xs text-slate-600 cursor-pointer">深度思考</Label>
+                      <Label htmlFor={`think-${id}`} className="text-xs font-medium text-foreground cursor-pointer">深度思考</Label>
+                      <Tooltip><TooltipTrigger asChild><HelpCircle size={12} className="text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent><p>启用模型的深度推理能力，提升分析质量但响应更慢</p></TooltipContent></Tooltip>
                     </div>
                   )}
                   {canSearch && (
@@ -123,11 +128,12 @@ export function ModelSelector({
                       <Switch id={`search-${id}`}
                         checked={override?.enable_web_search ?? true}
                         onCheckedChange={v => updateOverride(id, 'enable_web_search', v)} />
-                      <Label htmlFor={`search-${id}`} className="text-xs text-slate-600 cursor-pointer">联网搜索</Label>
+                      <Label htmlFor={`search-${id}`} className="text-xs font-medium text-foreground cursor-pointer">联网搜索</Label>
+                      <Tooltip><TooltipTrigger asChild><HelpCircle size={12} className="text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent><p>允许模型联网搜索最新文献，部分模型不支持与深度思考同时开启</p></TooltipContent></Tooltip>
                     </div>
                   )}
                   {mutuallyExclusive && override?.enable_thinking && override?.enable_web_search && (
-                    <span className="text-xs text-amber-600">注意：该模型不支持同时开启两项</span>
+                    <span className="text-xs text-amber-600 font-medium">该模型不支持同时开启两项</span>
                   )}
                 </div>
               )

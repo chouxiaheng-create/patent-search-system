@@ -7,12 +7,13 @@ export interface AIModelRecord {
   api_key_encrypted: string
   model_id: string
   adapter_config: {
-    provider: 'openai_compat' | 'metaso'
-    web_search_method: 'tools_builtin' | 'tools_web_search' | 'extra_body' | 'native' | 'none'
+    provider: 'openai_compat' | 'metaso' | 'kimi' | 'zhipu'
+    web_search_method: 'tools_builtin' | 'tools_web_search' | 'extra_body' | 'native' | 'web_search_options' | 'none'
     web_search_tool_name?: string
     web_search_params?: Record<string, unknown>  // 智谱等需要额外参数
-    thinking_method: 'param' | 'model_switch' | 'extra_body' | 'default_on' | 'none'
+    thinking_method: 'param' | 'model_switch' | 'extra_body' | 'default_on' | 'reasoning_split' | 'none'
     thinking_model_id?: string
+    reasoning_effort?: 'high' | 'max'
     web_search_disables_thinking: boolean
     thinking_default_on: boolean
   }
@@ -34,6 +35,10 @@ export class OpenAICompatAdapter implements AIAdapter {
 
     try {
       const body = this.buildRequestBody(options)
+      const hasThinking = !!body.thinking || !!body.enable_thinking
+      const hasTools = !!body.tools
+      const hasWebSearch = !!body.web_search_options || !!body.enable_search
+      console.log(`[adapter] ${this.baseUrl}/chat/completions model=${body.model} thinking=${hasThinking} tools=${hasTools} webSearch=${hasWebSearch} bodyKeys=${Object.keys(body).join(',')}`)
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -69,7 +74,14 @@ export class OpenAICompatAdapter implements AIAdapter {
 
       // 优先取 content
       if (message?.content) {
-        return { success: true, content: message.content }
+        // 剥离 MiniMax 等模型的 <think>...</think> 标签（原生格式下思考内容混入 content）
+        let content = message.content
+        if (content.includes('<think>')) {
+          content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+          console.log(`[adapter] 剥离 <think> 标签后内容长度: ${content.length} 字符`)
+        }
+        console.log(`[adapter] 响应内容长度: ${content.length} 字符`)
+        return { success: true, content }
       }
 
       // 如果使用了工具，尝试从 tool_calls 获取结果
@@ -119,23 +131,40 @@ export class OpenAICompatAdapter implements AIAdapter {
     if (thinking_method === 'model_switch' && thinking_model_id && options.enableThinking) {
       body.model = thinking_model_id
     } else if (thinking_method === 'param') {
-      body.extra_body = body.extra_body || {}
+      // param: 直接作为请求体顶层参数（如 Kimi thinking: {type: 'enabled'}）
       if (options.enableThinking) {
-        (body.extra_body as Record<string, unknown>).thinking = { type: 'enabled' }
+        body.thinking = { type: 'enabled' }
+      } else {
+        body.thinking = { type: 'disabled' }
       }
-    } else if (thinking_method === 'extra_body' && options.enableThinking) {
-      body.extra_body = body.extra_body || {}
-      const extraBody = body.extra_body as Record<string, unknown>
-      extraBody.enable_thinking = true
+    } else if (thinking_method === 'default_on') {
+      // default_on: 模型默认开启思考（如 DeepSeek v4）
+      // 支持 reasoning_effort 控制思考强度（'high' | 'max'）
+      if (options.enableThinking) {
+        const thinkingParam: Record<string, unknown> = { type: 'enabled' }
+        body.thinking = thinkingParam
+        if (this.adapterConfig.reasoning_effort) {
+          body.reasoning_effort = this.adapterConfig.reasoning_effort
+        }
+      } else {
+        body.thinking = { type: 'disabled' }
+      }
+    } else if (thinking_method === 'extra_body') {
+      // extra_body: 合并到请求体顶层（兼容 DashScope 等 API，如千问 enable_thinking）
+      if (options.enableThinking) {
+        body.enable_thinking = true
+      }
+    } else if (thinking_method === 'reasoning_split') {
+      // MiniMax: reasoning_split 将思考内容分离到 reasoning_details 字段
+      body.reasoning_split = options.enableThinking
     }
 
     // 处理联网搜索
     if (options.enableWebSearch && web_search_method && web_search_method !== 'none') {
       if (web_search_disables_thinking) {
         // 清除可能已设置的 thinking 参数
-        if (body.extra_body) {
-          delete (body.extra_body as Record<string, unknown>).thinking
-        }
+        delete body.thinking
+        delete body.enable_thinking
       }
 
       if (web_search_method === 'tools_builtin') {
@@ -153,9 +182,12 @@ export class OpenAICompatAdapter implements AIAdapter {
           body.tools = [{ type: 'web_search', web_search: { search_mode: 'online' } }]
         }
       } else if (web_search_method === 'extra_body') {
-        body.extra_body = body.extra_body || {}
-        const extraBody = body.extra_body as Record<string, unknown>
-        extraBody.enable_search = true
+        // 合并到请求体顶层（兼容 DashScope 等 API，如千问 enable_search）
+        body.enable_search = true
+      } else if (web_search_method === 'web_search_options') {
+        // 部分 OpenAI 兼容 API 支持 web_search_options 参数
+        // 注意：DeepSeek v4 文档中未提及此参数，建议将 DeepSeek 的 web_search_method 设为 'none'
+        body.web_search_options = { search_mode: 'auto' }
       } else if (web_search_method === 'native') {
         // 搜索引擎本身支持搜索，无需额外参数
       }

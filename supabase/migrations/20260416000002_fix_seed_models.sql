@@ -1,6 +1,6 @@
--- 修正 Kimi K2.5（旧 model_id = moonshot-v1-32k）
+-- 修正 Kimi K2.6（旧 model_id = moonshot-v1-32k）
 UPDATE ai_models SET
-  model_id = 'kimi-k2.5',
+  model_id = 'kimi-k2.6',
   adapter_config = '{
     "provider": "openai_compat",
     "web_search_method": "tools_builtin",
@@ -10,6 +10,19 @@ UPDATE ai_models SET
     "thinking_default_on": true
   }'::jsonb
 WHERE name = 'Kimi K2.5' AND is_builtin = true;
+
+-- 如果记录已经是 Kimi K2.6（幂等），也确保配置正确
+UPDATE ai_models SET
+  model_id = 'kimi-k2.6',
+  adapter_config = '{
+    "provider": "openai_compat",
+    "web_search_method": "tools_builtin",
+    "web_search_tool_name": "$web_search",
+    "thinking_method": "default_on",
+    "web_search_disables_thinking": true,
+    "thinking_default_on": true
+  }'::jsonb
+WHERE name = 'Kimi K2.6' AND is_builtin = true;
 
 -- 修正 智谱GLM-5.1（旧 model_id = glm-4）
 UPDATE ai_models SET

@@ -1,4 +1,4 @@
-// components/flow/job-progress.tsx
+﻿// components/flow/job-progress.tsx
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -123,7 +123,10 @@ export function JobProgress({ jobId, userId }: JobProgressProps) {
         if (payload.eventType === 'UPDATE') {
           setTasks(prev => prev.map(t => t.id === payload.new.id ? payload.new as SearchTask : t))
         } else if (payload.eventType === 'INSERT') {
-          setTasks(prev => [...prev, payload.new as SearchTask])
+          setTasks(prev => {
+            if (prev.some(t => t.id === payload.new.id)) return prev
+            return [...prev, payload.new as SearchTask]
+          })
         }
       })
       .subscribe()
@@ -192,6 +195,8 @@ export function JobProgress({ jobId, userId }: JobProgressProps) {
               strategyName: strategy?.name || '未知策略',
               status: task.status,
               resultCount: task.results?.length || 0,
+              startedAt: task.started_at,
+              completedAt: task.completed_at,
             },
           })
 
@@ -255,7 +260,14 @@ export function JobProgress({ jobId, userId }: JobProgressProps) {
   }, [job, jobId, userId])
 
   if (!job) {
-    return <div className="flex items-center justify-center h-64">加载中...</div>
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <span className="text-sm font-medium">加载中...</span>
+        </div>
+      </div>
+    )
   }
 
   return (

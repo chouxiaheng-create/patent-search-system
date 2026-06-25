@@ -16,13 +16,7 @@ export async function GET(
 
   const { data: report, error } = await supabase
     .from('reports')
-    .select(`
-      *,
-      document:patent_documents (
-        id,
-        title
-      )
-    `)
+    .select('*')
     .eq('id', reportId)
     .eq('user_id', user.id)
     .single()
