@@ -1,10 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockBossClient = { send: vi.fn().mockResolvedValue('job-id') }
-
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }))
 vi.mock('@/lib/supabase/admin', () => ({ createServiceClient: vi.fn() }))
-vi.mock('@/lib/boss-client', () => ({ getBossClient: vi.fn().mockResolvedValue(mockBossClient) }))
+vi.mock('@/lib/boss-client', () => ({ sendBossJob: vi.fn().mockResolvedValue(undefined) }))
 
 beforeEach(() => { vi.resetModules(); vi.clearAllMocks() })
 
@@ -72,6 +70,9 @@ describe('POST /api/jobs', () => {
     }) as any)
     expect(res.status).toBe(201)
     expect((await res.json()).jobId).toBe('job-uuid')
-    expect(mockBossClient.send).toHaveBeenCalled()
+    const { sendBossJob } = await import('@/lib/boss-client')
+    expect(sendBossJob).toHaveBeenCalledTimes(1)
+    expect((sendBossJob as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe('search-job')
+    expect((sendBossJob as ReturnType<typeof vi.fn>).mock.calls[0][1]).toMatchObject({ jobId: 'job-uuid' })
   })
 })

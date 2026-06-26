@@ -1,11 +1,15 @@
 ﻿// worker/src/handlers/search-job.ts
 import type { Job } from 'pg-boss'
-import { supabase, getModel, getStrategy, getJob, getDocument, updateJob, updateTaskStatus, getSearchTasks, createSearchTasks } from '../services/supabase'
+import {
+  getModel, getStrategy, getJob, getDocument, updateJob, updateTaskStatus,
+  getSearchTasks, createSearchTasks, resetTasksToPending, getPlatformNames, getStrategyNames
+} from '../services/supabase'
 import { sendNotification } from '../services/notification'
 import { createAdapter } from '../adapters'
 import { fillPromptTemplate, parseSearchResults, filterByQuality, ParsedData, SearchResult } from '../utils/prompt'
 import { generateReport } from '../services/report'
 import { callWithRetry, sleep } from '../utils/retry'
+import { handleJobFailure } from '../services/job-retry'
 
 interface SearchJobData {
   jobId: string
@@ -17,6 +21,7 @@ interface ModelFeatureOverride {
   enable_web_search: boolean
 }
 
+type EnrichedResult = SearchResult & { source_task_id: string; source_platform: string; source_strategy: string }
 
 /** 同模型组内最大并发数（避免单个 API 限流）*/
 const MAX_CONCURRENT_PER_MODEL = 2
@@ -25,8 +30,10 @@ const MAX_CONCURRENT_PER_MODEL = 2
  *  下需要 5-8 分钟，5 分钟会导致超时 abandoned。智谱 DeepSeek 千问也类似 */
 const SEARCH_TASK_TIMEOUT_MS = 10 * 60 * 1000
 
-/** 搜索任务全局超时（20 分钟） */
-const JOB_GLOBAL_TIMEOUT_MS = 20 * 60 * 1000
+/** 单次尝试硬超时（25 分钟）。
+ *  整个 execution 套此上限；到点强制 throw → catch → handleJobFailure（重排或判 failed）。
+ *  pg-boss expirein 设为 30min（>25min），避免在跑期间被 pg-boss 过早 expire/重复执行。 */
+const HARD_TIMEOUT_MS = 25 * 60 * 1000
 
 export async function handleSearchJob(jobs: Job<SearchJobData>[]): Promise<void> {
   const job = jobs[0]
@@ -34,73 +41,84 @@ export async function handleSearchJob(jobs: Job<SearchJobData>[]): Promise<void>
 
   console.log(`[search-job] Starting job ${job.id}, jobId: ${jobId}`)
 
-  try {
-    // 1. 检查任务是否已被取消
-    const jobRecord = await getJob(jobId)
-
-    if (jobRecord.status === 'cancelled') {
-      console.log(`[search-job] Job ${jobId} was cancelled before start`)
-      return
-    }
-
-    // 2. 更新状态为 'running'
-    await updateJob(jobId, { status: 'running', started_at: new Date().toISOString() })
-
-    // 3. 获取解析数据
-    const doc = await getDocument(jobRecord.document_id)
-    const parsedData = doc.parsed_data as ParsedData | null
-
-    if (!parsedData) {
-      throw new Error('文档解析数据为空')
-    }
-
-    const userId = doc.user_id
-    const config = jobRecord.config
-
-    // 4. 创建子任务记录
-    const tasks = await createSearchTasks(jobId, config.model_ids, config.strategy_ids)
-
-    // 5. 并发执行所有子任务（带全局超时和取消检查）
-    let cancelled = false
-    const cancelCheckInterval = setInterval(async () => {
-      try {
-        const { data } = await supabase
-          .from('search_jobs')
-          .select('status')
-          .eq('id', jobId)
-          .single()
-
-        if (data?.status === 'cancelled') {
-          cancelled = true
-          clearInterval(cancelCheckInterval)
-        }
-      } catch {
-        // 忽略错误
-      }
-    }, 5000)
-
-    // 全局超时 guard
-    const globalTimeout = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(`检索任务全局超时（${JOB_GLOBAL_TIMEOUT_MS / 60000} 分钟）`)), JOB_GLOBAL_TIMEOUT_MS)
-    })
-
+  // 取消检查：每 5s 轮询 search_jobs.status，若被取消则置标志，执行循环会在批次边界退出
+  let cancelled = false
+  const cancelCheckInterval = setInterval(async () => {
     try {
-      const execution = (async () => {
-        // 按模型分组：模型间并行，同模型内最多 MAX_CONCURRENT_PER_MODEL 个并发
-        const tasksByModel = new Map<string, typeof tasks>()
-        for (const task of tasks) {
-          if (!tasksByModel.has(task.model_id)) tasksByModel.set(task.model_id, [])
-          tasksByModel.get(task.model_id)!.push(task)
+      const jobRow = await getJob(jobId).catch(() => null)
+      if (jobRow && jobRow.status === 'cancelled') {
+        cancelled = true
+        clearInterval(cancelCheckInterval)
+      }
+    } catch {
+      // 忽略错误
+    }
+  }, 5000)
+
+  // 硬超时 guard：到点 reject，强制结束 execution
+  let hardTimer: NodeJS.Timeout | undefined
+  const hardTimeout = new Promise<never>((_, reject) => {
+    hardTimer = setTimeout(() => reject(new Error(`检索任务硬超时（${HARD_TIMEOUT_MS / 60000} 分钟）`)), HARD_TIMEOUT_MS)
+  })
+
+  try {
+    // 整个执行体（含 getJob/getDocument/createSearchTasks/generateReport）都置于硬超时 race 之下，
+    // 保证任何一步挂起都不会让 handler 永不返回（pg-boss 无法强杀在跑的 JS Promise，故须自保）。
+    const execution = (async () => {
+      // 1. 检查任务是否已被取消
+      const jobRecord = await getJob(jobId)
+      if (jobRecord.status === 'cancelled') {
+        console.log(`[search-job] Job ${jobId} was cancelled before start`)
+        return
+      }
+
+      // 2. 更新状态为 'running'
+      await updateJob(jobId, { status: 'running', started_at: new Date().toISOString() })
+
+      // 3. 获取解析数据
+      const doc = await getDocument(jobRecord.document_id)
+      const parsedData = doc.parsed_data as ParsedData | null
+      if (!parsedData) {
+        throw new Error('文档解析数据为空')
+      }
+      const userId = doc.user_id
+      const config = jobRecord.config
+
+      // 4. 确保子任务存在（幂等：首次创建；重跑时返回已有），再取完整记录（含 results）
+      await createSearchTasks(jobId, config.model_ids, config.strategy_ids)
+      const tasks = await getSearchTasks(jobId)
+
+      // 5. 分流：done 保留，非 done 重置为 pending 后重跑
+      //    —— 同时服务首次运行、自动重排、手动部分重试三种场景，无需 flag
+      const doneTasks = tasks.filter((t: Record<string, unknown>) => t.status === 'done')
+      const toRun = tasks.filter((t: Record<string, unknown>) => t.status !== 'done')
+      if (toRun.length > 0) {
+        await resetTasksToPending(toRun.map((t: Record<string, unknown>) => t.id as string))
+      }
+      console.log(`[search-job] Job ${jobId}: ${doneTasks.length} done, ${toRun.length} to-run`)
+
+      // 6. 种子 allResults：从已成功子任务的 results 展平并打来源标签
+      const allResults: EnrichedResult[] = await seedResultsFromDoneTasks(doneTasks, config)
+
+      // 7. 并发执行 toRun（按模型分组：模型间并行，同模型内最多 MAX_CONCURRENT_PER_MODEL）
+      if (!cancelled && toRun.length > 0) {
+        const tasksByModel = new Map<string, Array<Record<string, unknown>>>()
+        for (const task of toRun) {
+          const mid = task.model_id as string
+          if (!tasksByModel.has(mid)) tasksByModel.set(mid, [])
+          tasksByModel.get(mid)!.push(task)
         }
 
         const modelPromises = Array.from(tasksByModel.entries()).map(async ([, modelTasks]) => {
-          const results: Array<SearchResult & { source_task_id: string; source_platform: string; source_strategy: string }> = []
-          // 同模型组内最多 MAX_CONCURRENT_PER_MODEL 个任务并发执行
+          const results: EnrichedResult[] = []
           for (let i = 0; i < modelTasks.length; i += MAX_CONCURRENT_PER_MODEL) {
             if (cancelled) break
             const batch = modelTasks.slice(i, i + MAX_CONCURRENT_PER_MODEL)
             const batchResults = await Promise.all(
-              batch.map(task => executeSingleTask(task, parsedData, config, jobId, userId))
+              batch.map(task => executeSingleTask(
+                { id: task.id as string, model_id: task.model_id as string, strategy_id: task.strategy_id as string },
+                parsedData, config, jobId, userId
+              ))
             )
             for (const taskResults of batchResults) {
               results.push(...taskResults)
@@ -114,52 +132,72 @@ export async function handleSearchJob(jobs: Job<SearchJobData>[]): Promise<void>
         })
 
         const allModelResults = await Promise.all(modelPromises)
-
-        // 收集所有结果
-        const allResults: Array<SearchResult & { source_task_id: string; source_platform: string; source_strategy: string }> = []
         for (const modelResults of allModelResults) {
-          for (const r of modelResults) {
-            allResults.push(r)
-          }
+          allResults.push(...modelResults)
         }
+      }
 
-        // 检查是否被取消
-        if (cancelled) {
-          console.log(`[search-job] Job ${jobId} was cancelled during execution`)
-          return
-        }
+      // 8. 检查是否被取消
+      if (cancelled) {
+        console.log(`[search-job] Job ${jobId} was cancelled during execution`)
+        return
+      }
 
-        // 6. 生成报告
-        await generateReport(jobId, userId, allResults, config)
+      // 9. 生成报告（generateReport 内部会先删旧报告再插入）
+      await generateReport(jobId, userId, allResults, config)
 
-        // 7. 更新状态为 'completed'
-        await updateJob(jobId, { status: 'completed', completed_at: new Date().toISOString() })
+      // 10. 更新状态为 'completed'
+      await updateJob(jobId, { status: 'completed', completed_at: new Date().toISOString() })
 
-        // 8. 发送通知
-        await sendNotification(userId, 'job_completed', `检索任务完成，共找到 ${allResults.length} 篇文献`, jobId)
+      // 11. 发送通知
+      await sendNotification(userId, 'job_completed', `检索任务完成，共找到 ${allResults.length} 篇文献`, jobId)
 
-        console.log(`[search-job] Job ${jobId} completed successfully`)
-      })()
+      console.log(`[search-job] Job ${jobId} completed successfully`)
+    })()
 
-      await Promise.race([execution, globalTimeout])
+    // 吞掉被硬超时放弃后 execution 迟到的 rejection，避免 unhandledReclamation 崩溃 worker
+    execution.catch(() => {})
 
-    } finally {
-      clearInterval(cancelCheckInterval)
-    }
+    await Promise.race([execution, hardTimeout])
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     console.error(`[search-job] Job ${jobId} failed: ${message}`)
 
-    await updateJob(jobId, { status: 'failed', completed_at: new Date().toISOString() }).catch(() => {})
-
-    const jobRecord = await getJob(jobId).catch(() => null)
-    if (jobRecord) {
-      await sendNotification(jobRecord.user_id, 'job_failed', `检索任务失败: ${message}`, jobId)
-    }
-
-    throw error
+    // 失败处理：retry_count < MAX 则重排（带 30s 退避），否则判 failed。
+    // handleJobFailure 内部所有 DB/RPC await 均有 withTimeout，收尾不会挂住。
+    await handleJobFailure(jobId, message)
+  } finally {
+    if (hardTimer) clearTimeout(hardTimer)
+    clearInterval(cancelCheckInterval)
   }
+}
+
+/**
+ * 从已成功（done）子任务的结果展平，打上 source_task_id/source_platform/source_strategy 标签，
+ * 作为后续 generateReport 的种子结果（部分重试时保留已成功项）。
+ */
+async function seedResultsFromDoneTasks(
+  doneTasks: Array<Record<string, unknown>>,
+  config: { model_ids: string[]; strategy_ids: string[] }
+): Promise<EnrichedResult[]> {
+  if (doneTasks.length === 0) return []
+
+  const modelNames = await getPlatformNames(config.model_ids)
+  const strategyNames = await getStrategyNames(config.strategy_ids)
+  const modelNameMap = new Map(config.model_ids.map((id, i) => [id, modelNames[i] || id]))
+  const strategyNameMap = new Map(config.strategy_ids.map((id, i) => [id, strategyNames[i] || id]))
+
+  const seeded: EnrichedResult[] = []
+  for (const t of doneTasks) {
+    const results = (Array.isArray(t.results) ? t.results : []) as SearchResult[]
+    const platform = modelNameMap.get(t.model_id as string) || String(t.model_id)
+    const strategy = strategyNameMap.get(t.strategy_id as string) || String(t.strategy_id)
+    for (const r of results) {
+      seeded.push({ ...r, source_task_id: t.id as string, source_platform: platform, source_strategy: strategy })
+    }
+  }
+  return seeded
 }
 
 async function executeSingleTask(
@@ -168,7 +206,7 @@ async function executeSingleTask(
   config: { model_ids: string[]; strategy_ids: string[]; per_task_limit: number; report_limit: number; report_model_id: string; model_feature_overrides?: ModelFeatureOverride[] },
   jobId: string,
   userId: string
-): Promise<Array<SearchResult & { source_task_id: string; source_platform: string; source_strategy: string }>> {
+): Promise<EnrichedResult[]> {
   // 获取模型和策略（不参与重试）
   const model = await getModel(task.model_id)
   const strategy = await getStrategy(task.strategy_id)

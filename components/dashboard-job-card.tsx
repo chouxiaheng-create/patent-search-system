@@ -6,6 +6,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CancelJobButton } from '@/components/cancel-job-button'
+import { RetryJobButton } from '@/components/retry-job-button'
+import { RetryFailedTasksButton } from '@/components/retry-failed-tasks-button'
 import { JobConfigDialog } from '@/components/job-config-dialog'
 import { Clock, CheckCircle2, AlertCircle, XCircle, Loader2, BarChart3, Settings } from 'lucide-react'
 import type { JobStatus } from '@/lib/supabase/types'
@@ -59,6 +61,8 @@ export function DashboardJobCard({
   const config = statusConfig[job.status as JobStatus]
   const totalTasks = tasks.length
   const doneTasks = tasks.filter(t => t.status === 'done').length
+  // 是否存在可部分重试的子任务（非 done），用于显示"重试失败项"
+  const hasNonDoneTasks = tasks.some(t => t.status !== 'done')
 
   return (
     <>
@@ -122,6 +126,12 @@ export function DashboardJobCard({
               </Button>
               {(job.status === 'queued' || job.status === 'running') && (
                 <CancelJobButton jobId={job.id} />
+              )}
+              {(job.status === 'failed' || job.status === 'cancelled') && (
+                <RetryJobButton jobId={job.id} />
+              )}
+              {((job.status === 'completed' || job.status === 'failed') && hasNonDoneTasks) && (
+                <RetryFailedTasksButton jobId={job.id} />
               )}
               {job.status === 'completed' && (
                 <Button asChild variant="default" size="sm" className="rounded-xl">

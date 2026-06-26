@@ -112,6 +112,8 @@ export interface SearchJob {
     report_system_prompt?: string
     model_feature_overrides?: ModelFeatureOverride[]
   }
+  retry_count: number
+  retried_from_job_id: string | null
   started_at: string | null
   completed_at: string | null
   created_at: string

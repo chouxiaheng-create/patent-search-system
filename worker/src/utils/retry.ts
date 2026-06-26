@@ -4,6 +4,21 @@ export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+/**
+ * 给任意 PromiseLike 套一个超时上限（supabase 查询构造器是 thenable 但非 Promise，故用 PromiseLike + Promise.resolve 包一层）。
+ * 超时后 reject（原 Promise 不会被取消，但其结果将被丢弃——用于保证调用方有界返回）。
+ * 这是"卡住任务自动结束"的关键保证：DB/RPC 不可达时，handler 不会被永不返回的 await 拖死。
+ */
+export function withTimeout<T>(promise: PromiseLike<T>, ms: number, label = 'operation'): Promise<T> {
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} 超时（${Math.round(ms / 1000)}秒）`)), ms)
+  })
+  return Promise.race<T>([Promise.resolve(promise), timeout]).finally(() => {
+    if (timer) clearTimeout(timer)
+  })
+}
+
 /** 检测是否为限流错误（429 或 rate_limit 相关） */
 export function isRateLimitError(error: unknown): boolean {
   const msg = error instanceof Error ? error.message : String(error ?? '')

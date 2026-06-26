@@ -6,6 +6,8 @@ import { PgBoss, type Job } from 'pg-boss'
 import { startHealthServer } from './health'
 import { handleParseJob } from './handlers/parse-job'
 import { handleSearchJob } from './handlers/search-job'
+import { getStuckRunningJobs } from './services/supabase'
+import { markJobFailed } from './services/job-retry'
 
 // 选择连接串：DIRECT_DATABASE_URL 优先（直连，绕过池化）
 // DIRECT_DATABASE_URL 例如：postgresql://postgres:<password>@db.<project>.supabase.co:5432/postgres
@@ -75,9 +77,29 @@ async function main() {
 
   console.log('[Worker] Ready and listening for jobs')
 
+  // 看门狗：每 60s 扫描 running 超过 30min 的任务（> 25min 硬超时，专抓 worker 失联/未正常 settle 的任务），
+  // 直接判 failed（不重排，由用户在历史列表手动重试）。pg-boss 侧 active 过期由其自身 expirein=30min 处理。
+  const WATCHDOG_INTERVAL_MS = 60 * 1000
+  const WATCHDOG_STUCK_THRESHOLD_MS = 30 * 60 * 1000
+  const watchdog = setInterval(async () => {
+    try {
+      const stuck = await getStuckRunningJobs(WATCHDOG_STUCK_THRESHOLD_MS)
+      if (stuck.length > 0) {
+        console.warn(`[watchdog] Found ${stuck.length} stuck running job(s), marking failed`)
+        for (const j of stuck) {
+          await markJobFailed(j.id, 'worker 失联：任务运行超时未结束', j.user_id)
+        }
+      }
+    } catch (err) {
+      console.error('[watchdog] scan failed:', (err as Error).message)
+    }
+  }, WATCHDOG_INTERVAL_MS)
+  watchdog.unref()  // 不阻止进程退出
+
   // 优雅退出
   const shutdown = async (signal: string) => {
     console.log(`[Worker] Received ${signal}, shutting down...`)
+    clearInterval(watchdog)
     try {
       await boss.stop({ graceful: true, timeout: 10000 })
     } catch (err) {

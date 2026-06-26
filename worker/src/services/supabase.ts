@@ -103,6 +103,38 @@ export async function getSearchTasks(jobId: string) {
   return data || []
 }
 
+/**
+ * 将指定子任务重置为 pending（清 error_msg/results/started_at/completed_at）。
+ * 用于部分重试与自动重排：只重跑非 done 子任务，保留已成功子任务结果。
+ */
+export async function resetTasksToPending(taskIds: string[]): Promise<void> {
+  if (taskIds.length === 0) return
+  const { error } = await supabase
+    .from('search_tasks')
+    .update({ status: 'pending', error_msg: null, results: null, started_at: null, completed_at: null, retry_count: 0 })
+    .in('id', taskIds)
+
+  if (error) throw new Error(`重置子任务失败: ${error.message}`)
+}
+
+/**
+ * 查找卡在 running 超过阈值的任务（看门狗用）。
+ */
+export async function getStuckRunningJobs(thresholdMs: number): Promise<Array<{ id: string; user_id: string }>> {
+  const cutoff = new Date(Date.now() - thresholdMs).toISOString()
+  const { data, error } = await supabase
+    .from('search_jobs')
+    .select('id, user_id')
+    .eq('status', 'running')
+    .lt('started_at', cutoff)
+
+  if (error) {
+    console.error('[supabase] getStuckRunningJobs failed:', error.message)
+    return []
+  }
+  return (data || []) as Array<{ id: string; user_id: string }>
+}
+
 export async function createSearchTasks(jobId: string, modelIds: string[], strategyIds: string[]) {
   // 先检查是否已存在子任务（幂等性）
   const { data: existing } = await supabase

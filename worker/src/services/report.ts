@@ -95,7 +95,8 @@ export async function generateReport(
 
   const htmlContent = buildHtmlReport(reportData)
 
-  // 6. 写入数据库
+  // 6. 写入数据库（先删同 job 旧报告，避免部分重试/重排后产生孤儿行；首次运行删 0 行无副作用）
+  await supabase.from('reports').delete().eq('job_id', jobId)
   const { error } = await supabase.from('reports').insert({
     job_id: jobId,
     user_id: userId,
