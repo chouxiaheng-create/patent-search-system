@@ -87,6 +87,7 @@ export interface SearchResult {
   rank?: number
   quality_score?: number  // 0-100，用于过滤低质量结果
   quality_warnings?: string[]  // 质量问题描述
+  metadata_source?: string  // 元数据富化来源（arXiv/Crossref/Semantic Scholar/页面meta），用于追溯
 }
 
 /**
@@ -284,13 +285,19 @@ export function parseSearchResults(aiContent: string, limit: number): SearchResu
 /**
  * 标准化日期格式为 YYYY-MM-DD
  */
-function normalizeDate(dateStr: string): string {
+export function normalizeDate(dateStr: string): string {
   if (!dateStr) return ''
 
   const trimmed = dateStr.trim()
 
   // 已经是 YYYY-MM-DD 格式
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
+
+  // 尝试 YYYY-M-D（允许单位月/日，如 Crossref date-parts join 后的 "2023-5-15"）
+  const dashMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (dashMatch) {
+    return `${dashMatch[1]}-${dashMatch[2].padStart(2, '0')}-${dashMatch[3].padStart(2, '0')}`
+  }
 
   // 尝试 YYYY/MM/DD 格式
   const slashMatch = trimmed.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/)

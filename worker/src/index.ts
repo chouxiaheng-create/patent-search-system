@@ -66,9 +66,25 @@ async function main() {
 
   const boss = await startBossWithRetry()
 
-  // 确保队列存在（首次运行时会建表）
-  await boss.createQueue('parse-job')
-  await boss.createQueue('search-job')
+  // 确保队列存在（首次运行时会建表）。
+  // createQueue 是 DDL，经 Supabase pooler 间歇性超时；它是幂等的（CREATE IF NOT EXISTS），
+  // 故加重试，避免一次超时就让 main() 抛错导致进程崩溃、nodemon 不再消费队列。
+  const createQueueWithRetry = async (name: string, maxAttempts = 6) => {
+    let lastErr: unknown = null
+    for (let i = 1; i <= maxAttempts; i++) {
+      try {
+        await boss.createQueue(name)
+        return
+      } catch (err) {
+        lastErr = err
+        console.warn(`[Worker] createQueue(${name}) attempt ${i}/${maxAttempts} failed: ${(err as Error).message}`)
+        if (i < maxAttempts) await sleep(2000 * i)
+      }
+    }
+    throw lastErr
+  }
+  await createQueueWithRetry('parse-job')
+  await createQueueWithRetry('search-job')
   console.log('[Worker] Queues ready')
 
   // 注册任务处理器

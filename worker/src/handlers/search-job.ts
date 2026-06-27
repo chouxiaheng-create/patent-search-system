@@ -10,6 +10,7 @@ import { fillPromptTemplate, parseSearchResults, filterByQuality, ParsedData, Se
 import { generateReport } from '../services/report'
 import { callWithRetry, sleep } from '../utils/retry'
 import { handleJobFailure } from '../services/job-retry'
+import { enrichMetadata } from '../services/enrichment'
 
 interface SearchJobData {
   jobId: string
@@ -215,14 +216,10 @@ async function executeSingleTask(
   // 联网搜索开关：
   // - 用户可显式覆盖（featureOverride）
   // - 模型配置 web_search_method='none' 时强制关闭
-  // - 追踪检索 + Kimi/MiniMax 等不稳定联网模型时默认关闭（因为这些模型在精确查找时经常 0 results）
+  // - 其余情况（含 Kimi/秘塔）任何策略都保持联网打开（按需求：不再对追踪检索做条件性关闭）
   const modelSupportsWebSearch = model.adapter_config?.web_search_method && model.adapter_config.web_search_method !== 'none'
-  const isUnstableSearchModel = ['kimi', 'metaso'].includes(model.adapter_config?.provider || '')
-  const isTrackingStrategy = strategy.name === '追踪检索'
-  const enableWebSearch = (featureOverride?.enable_web_search ?? true)
-    && modelSupportsWebSearch
-    && !(isUnstableSearchModel && isTrackingStrategy)  // 追踪检索对 Kimi/MiniMax 关闭联网，回退到知识生成
-  console.log(`[search-job] Task ${task.id.substring(0,8)} | model=${model.name} | strategy=${strategy.name} | provider=${model.adapter_config?.provider} | enableWebSearch=${enableWebSearch} (supports=${modelSupportsWebSearch}, unstable=${isUnstableSearchModel}, tracking=${isTrackingStrategy})`)
+  const enableWebSearch = (featureOverride?.enable_web_search ?? true) && modelSupportsWebSearch
+  console.log(`[search-job] Task ${task.id.substring(0,8)} | model=${model.name} | strategy=${strategy.name} | provider=${model.adapter_config?.provider} | enableWebSearch=${enableWebSearch} (supports=${modelSupportsWebSearch})`)
   const prompt = fillPromptTemplate(strategy.prompt_template, parsedData)
   const adapter = createAdapter(model)
 
@@ -302,6 +299,18 @@ async function executeSingleTask(
 
     const rawResults = parseSearchResults(rawContent, config.per_task_limit * 2)  // 多取一些用于过滤
     console.log(`[search-job] Task ${task.id}: 解析出 ${rawResults.length} 条结果`)
+
+    // 元数据富化：按 URL/title 从 arXiv/Crossref/Semantic Scholar/页面meta 回填缺失的 authors/pub_date
+    // 质量优先——在过滤之前富化，使原本因缺字段被低分丢弃的结果也能被救回。质量分由下方 filterByQuality 重算。
+    const beforeMissing = rawResults.filter(r => !r.authors || r.authors === '未知' || !r.pub_date).length
+    if (beforeMissing > 0) {
+      console.log(`[search-job] Task ${task.id}: ${beforeMissing} 条结果缺作者/日期，启动元数据富化`)
+      const enriched = await enrichMetadata(rawResults)
+      const afterMissing = enriched.filter(r => !r.authors || r.authors === '未知' || !r.pub_date).length
+      console.log(`[search-job] Task ${task.id}: 富化完成，缺字段 ${beforeMissing} → ${afterMissing}`)
+      // 用富化后的结果替换（enrichMetadata 返回新数组，原地替换引用）
+      for (let i = 0; i < rawResults.length; i++) rawResults[i] = enriched[i]
+    }
 
     // 质量过滤：剔除低质量结果（分数 < 50）
     const MIN_QUALITY_SCORE = 50
