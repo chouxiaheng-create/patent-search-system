@@ -24,7 +24,7 @@ export class MetasoAdapter implements AIAdapter {
       const response = await fetch(`${this.baseUrl}/v1/search`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
           'Authorization': `Bearer ${this.apiKey}`,
           'Accept': 'application/json'
         },

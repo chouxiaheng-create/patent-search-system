@@ -104,7 +104,7 @@ export class ZhipuAdapter implements AIAdapter {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
           'Authorization': `Bearer ${this.apiKey}`
         },
         body: JSON.stringify(body),
@@ -173,7 +173,7 @@ export class ZhipuAdapter implements AIAdapter {
       const response = await fetch(`${this.baseUrl}/web_search`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
           'Authorization': `Bearer ${this.apiKey}`
         },
         body: JSON.stringify(searchBody),

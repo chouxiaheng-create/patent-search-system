@@ -218,3 +218,37 @@ User configures search (step-2): selects models × strategies, limits, report mo
 - 模型名必须与 provider 官方文档一字不差
 - 不确定时先查文档或问用户，不要猜
 - 遇到 404/模型不可用 → 立即切换 fallback，不要反复重试同一个不可用模型
+
+## Chinese Character Encoding Rules（中文编码规范）
+
+### 根源问题
+
+Windows 中文版系统默认编码为 **GBK/GB2312（CodePage 936）**，中文 .txt 文件默认保存为 GBK。项目当前多处代码假设所有输入为 UTF-8，这是中文乱码的根源。
+
+### 文件解析
+
+- **.txt 文件**：**禁止** 直接 `buffer.toString('utf-8')`。必须先 `jschardet.detect()` 检测编码，高置信度非 UTF-8 结果用检测到的编码解码；否则 UTF-8 → GBK/GB2312/GB18030 逐级回退
+- **.docx**：OpenXML 内部为 UTF-8，mammoth 解析安全
+- **.xlsx**：内部 UTF-8，`sheet_to_csv` 无编码控制，验证输出中文
+- **.pdf**：pdf-parse 对中文 PDF 的 CMap 映射可能失败，解析后验证中文字符占比 >70%
+
+### API 通信
+
+- 所有 `fetch` 调用 Header 必须写 `Content-Type: application/json; charset=utf-8`
+- 错误响应 `response.text()` 可能返回 GBK 编码的网关错误页，读不到内容时尝试 GBK 解码
+
+### 环境配置
+
+- PowerShell Profile 已设置 `$OutputEncoding = UTF-8`（`Microsoft.PowerShell_profile.ps1`）
+- Worker 启动脚本已加 `chcp 65001`（`worker/package.json → dev:utf8 / start:utf8`）
+- Worker 入口 `index.ts` 已加强制 UTF-8 控制台代码页
+- Node.js 内部 V8 使用 UTF-16，无额外配置需求
+
+### 常见乱码模式
+
+| 症状 | 根因 | 检查 |
+|------|------|------|
+| 中文变成 `????` | PowerShell OutputEncoding = ASCII | Profile 是否已加载 |
+| 中文变成 `锟斤拷` | UTF-8 字节被当作 GBK 解码 | 检查解码路径 |
+| 中文变成 `æ±‰å­—` | GBK 字节被当作 UTF-8 解码 | txt.ts 编码检测是否生效 |
+| 替换字符 `�` 大量出现 | 编码不匹配且无 fallback | 检查 txt.ts 的 replaceCount 逻辑 |
