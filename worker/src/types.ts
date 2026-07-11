@@ -15,7 +15,7 @@ export interface AIModelRecord {
 
 export interface AdapterConfig {
   provider: 'openai_compat' | 'metaso' | 'kimi' | 'zhipu'
-  web_search_method: 'tools_builtin' | 'tools_web_search' | 'extra_body' | 'native' | 'web_search_options' | 'none'
+  web_search_method: 'tools_builtin' | 'tools_web_search' | 'extra_body' | 'native' | 'web_search_options' | 'agentic' | 'none'
   web_search_tool_name?: string
   web_search_params?: Record<string, unknown>
   thinking_method: 'param' | 'model_switch' | 'extra_body' | 'default_on' | 'reasoning_split' | 'none'

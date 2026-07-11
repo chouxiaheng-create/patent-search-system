@@ -1,4 +1,5 @@
 import { AIAdapter, AIAdapterCallOptions, AIAdapterResult } from './base'
+import { webSearch, type WebSearchHit } from '../services/web-search'
 
 export interface AIModelRecord {
   id: string
@@ -8,7 +9,7 @@ export interface AIModelRecord {
   model_id: string
   adapter_config: {
     provider: 'openai_compat' | 'metaso' | 'kimi' | 'zhipu'
-    web_search_method: 'tools_builtin' | 'tools_web_search' | 'extra_body' | 'native' | 'web_search_options' | 'none'
+    web_search_method: 'tools_builtin' | 'tools_web_search' | 'extra_body' | 'native' | 'web_search_options' | 'agentic' | 'none'
     web_search_tool_name?: string
     web_search_params?: Record<string, unknown>  // 智谱等需要额外参数
     thinking_method: 'param' | 'model_switch' | 'extra_body' | 'default_on' | 'reasoning_split' | 'none'
@@ -34,6 +35,11 @@ export class OpenAICompatAdapter implements AIAdapter {
     const timeoutId = setTimeout(() => controller.abort(), timeout)
 
     try {
+      // agentic 联网：DeepSeek/MiniMax 等无服务端搜索的模型，由适配器自身跑工具调用循环
+      if (options.enableWebSearch && this.adapterConfig.web_search_method === 'agentic') {
+        return await this.agenticCall(options, controller)
+      }
+
       const body = this.buildRequestBody(options)
       const hasThinking = !!body.thinking || !!body.enable_thinking
       const hasTools = !!body.tools
@@ -42,7 +48,7 @@ export class OpenAICompatAdapter implements AIAdapter {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
           'Authorization': `Bearer ${this.apiKey}`
         },
         body: JSON.stringify(body),
@@ -125,39 +131,11 @@ export class OpenAICompatAdapter implements AIAdapter {
       messages
     }
 
-    const { web_search_method, thinking_method, thinking_model_id, web_search_disables_thinking, thinking_default_on } = this.adapterConfig
+    const { web_search_method, web_search_disables_thinking } = this.adapterConfig
 
-    // 处理深度思考
-    if (thinking_method === 'model_switch' && thinking_model_id && options.enableThinking) {
-      body.model = thinking_model_id
-    } else if (thinking_method === 'param') {
-      // param: 直接作为请求体顶层参数（如 Kimi thinking: {type: 'enabled'}）
-      if (options.enableThinking) {
-        body.thinking = { type: 'enabled' }
-      } else {
-        body.thinking = { type: 'disabled' }
-      }
-    } else if (thinking_method === 'default_on') {
-      // default_on: 模型默认开启思考（如 DeepSeek v4）
-      // 支持 reasoning_effort 控制思考强度（'high' | 'max'）
-      if (options.enableThinking) {
-        const thinkingParam: Record<string, unknown> = { type: 'enabled' }
-        body.thinking = thinkingParam
-        if (this.adapterConfig.reasoning_effort) {
-          body.reasoning_effort = this.adapterConfig.reasoning_effort
-        }
-      } else {
-        body.thinking = { type: 'disabled' }
-      }
-    } else if (thinking_method === 'extra_body') {
-      // extra_body: 合并到请求体顶层（兼容 DashScope 等 API，如千问 enable_thinking）
-      if (options.enableThinking) {
-        body.enable_thinking = true
-      }
-    } else if (thinking_method === 'reasoning_split') {
-      // MiniMax: reasoning_split 将思考内容分离到 reasoning_details 字段
-      body.reasoning_split = options.enableThinking
-    }
+    // 处理深度思考（抽到 applyThinkingParams，agentic 循环也复用）
+    // 注意：web_search 开启且 web_search_disables_thinking=true 时，下方联网段会清除 thinking 参数
+    this.applyThinkingParams(body, options.enableThinking)
 
     // 处理联网搜索
     if (options.enableWebSearch && web_search_method && web_search_method !== 'none') {
@@ -194,5 +172,203 @@ export class OpenAICompatAdapter implements AIAdapter {
     }
 
     return body
+  }
+
+  // ============ Agentic 联网（工具调用循环） ============
+  // 用于 web_search_method='agentic' 的模型（DeepSeek/MiniMax）：
+  // 模型 API 不提供服务端网页搜索，由适配器声明 web_search 函数工具，LLM 决定搜什么，
+  // 适配器代为执行真实搜索（Tavily），把结果回灌为 tool 消息，循环直到 LLM 输出最终 JSON 或触顶。
+
+  /**
+   * 将思考参数写入请求体（从 buildRequestBody 抽出，agentic 循环复用）。
+   */
+  private applyThinkingParams(body: Record<string, unknown>, enableThinking: boolean | undefined): void {
+    const { thinking_method, thinking_model_id, reasoning_effort } = this.adapterConfig
+    if (thinking_method === 'model_switch' && thinking_model_id && enableThinking) {
+      body.model = thinking_model_id
+    } else if (thinking_method === 'param') {
+      body.thinking = enableThinking ? { type: 'enabled' } : { type: 'disabled' }
+    } else if (thinking_method === 'default_on') {
+      if (enableThinking) {
+        const thinkingParam: Record<string, unknown> = { type: 'enabled' }
+        body.thinking = thinkingParam
+        if (reasoning_effort) body.reasoning_effort = reasoning_effort
+      } else {
+        body.thinking = { type: 'disabled' }
+      }
+    } else if (thinking_method === 'extra_body') {
+      if (enableThinking) body.enable_thinking = true
+    } else if (thinking_method === 'reasoning_split') {
+      body.reasoning_split = enableThinking
+    }
+    // 'none' → 不设置任何思考参数
+  }
+
+  private static readonly WEB_SEARCH_TOOL = {
+    type: 'function' as const,
+    function: {
+      name: 'web_search',
+      description: '在互联网上搜索与专利检索相关的文献、论文、专利公开。当需要查找真实、最新的文献信息时调用。query 为搜索关键词。',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '搜索关键词，中英文均可' }
+        },
+        required: ['query']
+      }
+    }
+  }
+
+  private async agenticCall(
+    options: AIAdapterCallOptions,
+    controller: AbortController
+  ): Promise<AIAdapterResult> {
+    const maxRounds = Math.max(1, Number(process.env.WEB_SEARCH_MAX_ROUNDS) || 3)
+    // 联网开启时若配置了 web_search_disables_thinking，则关闭思考
+    const enableThinking = options.enableThinking && !this.adapterConfig.web_search_disables_thinking
+
+    const messages: Array<Record<string, unknown>> = []
+    if (options.systemPrompt) messages.push({ role: 'system', content: options.systemPrompt })
+    messages.push({ role: 'user', content: options.prompt })
+
+    console.log(`[adapter] agentic 循环开始 model=${options.modelId} maxRounds=${maxRounds}`)
+
+    for (let round = 0; round < maxRounds; round++) {
+      const body: Record<string, unknown> = {
+        model: options.modelId,
+        messages,
+        tools: [OpenAICompatAdapter.WEB_SEARCH_TOOL],
+        tool_choice: 'auto',
+      }
+      this.applyThinkingParams(body, enableThinking)
+
+      const res = await this.chatCompletions(body, controller)
+      if (!res.ok) return { success: false, error: res.error }
+
+      const message = res.message
+      // 把 assistant 回合原样追加，保持上下文（含 tool_calls 以对齐后续 tool 消息）
+      messages.push(this.serializeAssistantMessage(message))
+
+      const toolCalls = message?.tool_calls
+      if (toolCalls && toolCalls.length > 0) {
+        for (const tc of toolCalls) {
+          const id = (tc as { id?: string })?.id ?? `call_${round}`
+          const query = this.extractToolCallQuery(tc)
+          if (!query) {
+            messages.push({ role: 'tool', tool_call_id: id, content: '搜索关键词为空，跳过' })
+            continue
+          }
+          console.log(`[adapter] agentic 第${round + 1}轮 搜索: "${query}"`)
+          try {
+            const hits = await webSearch(query, controller.signal)
+            const toolContent = hits.length ? this.formatSearchHits(hits) : '搜索未返回结果'
+            messages.push({ role: 'tool', tool_call_id: id, content: toolContent })
+            console.log(`[adapter] agentic 第${round + 1}轮 搜索返回 ${hits.length} 条`)
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            console.warn(`[adapter] agentic 第${round + 1}轮 搜索失败: ${msg}`)
+            messages.push({ role: 'tool', tool_call_id: id, content: `搜索失败: ${msg}` })
+          }
+        }
+        continue // 让 LLM 基于搜索结果继续
+      }
+
+      // 无 tool_calls → 最终内容
+      if (message?.content) {
+        let content = message.content
+        if (content.includes('<think>')) {
+          // 兼容部分模型把思考混入 content（<think>...</think>）
+          content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+        }
+        console.log(`[adapter] agentic 第${round + 1}轮 返回最终内容 (${content.length} 字符)`)
+        return { success: true, content }
+      }
+
+      // 既无 content 也无 tool_calls，停止空转
+      break
+    }
+
+    // 触顶或空转：强制收尾，不带 tools，要求直接输出 JSON
+    console.log(`[adapter] agentic 触顶，强制收尾`)
+    messages.push({
+      role: 'user',
+      content: '请基于以上已搜索到的资料，现在直接返回符合系统提示要求的 JSON 文献数组，不要再调用搜索工具。'
+    })
+    const finalBody: Record<string, unknown> = { model: options.modelId, messages }
+    this.applyThinkingParams(finalBody, enableThinking)
+    const finalRes = await this.chatCompletions(finalBody, controller)
+    if (!finalRes.ok) return { success: false, error: finalRes.error }
+    const finalContent = finalRes.message?.content
+    if (finalContent) {
+      let content = finalContent
+      if (content.includes('<think>')) {
+        content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+      }
+      return { success: true, content }
+    }
+    return { success: false, error: 'agentic 循环触顶且最终未返回内容' }
+  }
+
+  /**
+   * 调用 chat/completions，统一处理 HTTP/业务错误。
+   */
+  private async chatCompletions(
+    body: Record<string, unknown>,
+    controller: AbortController
+  ): Promise<{ ok: true; message: { content?: string; tool_calls?: unknown[] } | undefined } | { ok: false; error: string }> {
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      return { ok: false, error: `HTTP ${response.status}: ${text}` }
+    }
+
+    const data = await response.json() as {
+      choices?: Array<{ message?: { content?: string; tool_calls?: unknown[] } }>
+      error?: { message?: string }
+    }
+    if (data.error) return { ok: false, error: data.error.message ?? JSON.stringify(data.error) }
+    return { ok: true, message: data.choices?.[0]?.message }
+  }
+
+  /**
+   * 把模型返回的 assistant 消息序列化回 messages（保留 tool_calls 以对齐后续 tool 消息）。
+   */
+  private serializeAssistantMessage(message: { content?: string; tool_calls?: unknown[] } | undefined): Record<string, unknown> {
+    const msg: Record<string, unknown> = { role: 'assistant' }
+    if (message?.tool_calls && message.tool_calls.length > 0) {
+      msg.tool_calls = message.tool_calls
+      msg.content = message.content ?? ''
+    } else {
+      msg.content = message?.content ?? ''
+    }
+    return msg
+  }
+
+  private extractToolCallQuery(toolCall: unknown): string {
+    try {
+      const tc = toolCall as { function?: { arguments?: string | Record<string, unknown> } }
+      const args = tc?.function?.arguments
+      if (!args) return ''
+      const parsed = typeof args === 'string' ? JSON.parse(args) : args
+      const obj = (parsed ?? {}) as Record<string, unknown>
+      return String(obj.query ?? obj.q ?? obj.keyword ?? '').trim()
+    } catch {
+      return ''
+    }
+  }
+
+  private formatSearchHits(hits: WebSearchHit[]): string {
+    return hits.map((h, i) =>
+      `[${i + 1}] 标题: ${h.title}\nURL: ${h.url}${h.pub_date ? `\n发布日期: ${h.pub_date}` : ''}\n摘要: ${h.snippet}`
+    ).join('\n\n')
   }
 }

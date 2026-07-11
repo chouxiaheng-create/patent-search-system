@@ -290,7 +290,7 @@ export class KimiAdapter implements AIAdapter {
     return fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         'Authorization': `Bearer ${this.apiKey}`
       },
       body: JSON.stringify(body),

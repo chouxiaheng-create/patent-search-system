@@ -2,6 +2,12 @@
 // AI 检索后台 worker：消费 pg-boss 队列中的 parse-job / search-job 任务。
 
 import 'dotenv/config'
+
+// 强制 UTF-8 控制台输出，避免 Windows GBK 环境中文乱码
+if (process.platform === 'win32') {
+  try { require('child_process').execSync('chcp 65001', { stdio: 'ignore' }) } catch { /* ignore */ }
+}
+
 import { PgBoss, type Job } from 'pg-boss'
 import { startHealthServer } from './health'
 import { handleParseJob } from './handlers/parse-job'
