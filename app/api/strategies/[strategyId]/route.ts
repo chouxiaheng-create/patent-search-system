@@ -1,15 +1,16 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/admin'
+import { withApiHandler } from '@/lib/api/handler'
 
-export async function PUT(
+export const PUT = withApiHandler(async (
   request: NextRequest,
   { params }: { params: Promise<{ strategyId: string }> }
-) {
+) => {
   const { strategyId } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
   const { name, prompt_template } = body as { name?: string; prompt_template?: string }
@@ -20,9 +21,9 @@ export async function PUT(
     .eq('id', strategyId)
     .single()
 
-  if (!existing) return Response.json({ error: '策略不存在' }, { status: 404 })
+  if (!existing) return NextResponse.json({ error: '策略不存在' }, { status: 404 })
   if (existing.is_builtin || existing.owner_id !== user.id) {
-    return Response.json({ error: '无权修改此策略' }, { status: 403 })
+    return NextResponse.json({ error: '无权修改此策略' }, { status: 403 })
   }
 
   const updates: Record<string, string> = {}
@@ -37,6 +38,6 @@ export async function PUT(
     .select()
     .single()
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json(data)
-}
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+})

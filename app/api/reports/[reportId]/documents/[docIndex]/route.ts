@@ -1,11 +1,12 @@
 // app/api/reports/[reportId]/documents/[docIndex]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { withApiHandler } from '@/lib/api/handler'
 
-export async function PATCH(
+export const PATCH = withApiHandler(async (
   request: NextRequest,
   { params }: { params: Promise<{ reportId: string; docIndex: string }> }
-) {
+) => {
   const { reportId, docIndex } = await params
   const supabase = await createClient()
 
@@ -52,4 +53,4 @@ export async function PATCH(
   }
 
   return NextResponse.json({ selected_docs: docs })
-}
+})

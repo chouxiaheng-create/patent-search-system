@@ -1,11 +1,12 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/admin'
+import { withApiHandler } from '@/lib/api/handler'
 
-export async function GET(_request: NextRequest) {
+export const GET = withApiHandler(async (_request: NextRequest) => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data, error } = await supabase
     .from('ai_models')
@@ -14,14 +15,14 @@ export async function GET(_request: NextRequest) {
     .order('is_builtin', { ascending: false })
     .order('name')
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json(data)
-}
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+})
 
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler(async (request: NextRequest) => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
   const { name, api_base_url, model_id, api_key, usage_types, capabilities, adapter_config } = body as {
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!name?.trim() || !api_base_url?.trim() || !model_id?.trim()) {
-    return Response.json({ error: '名称、API地址和模型ID不能为空' }, { status: 400 })
+    return NextResponse.json({ error: '名称、API地址和模型ID不能为空' }, { status: 400 })
   }
 
   const admin = createServiceClient()
@@ -55,8 +56,8 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   // 响应中剔除 api_key_encrypted
   const { api_key_encrypted: _, ...safeData } = data as Record<string, unknown>
-  return Response.json(safeData, { status: 201 })
-}
+  return NextResponse.json(safeData, { status: 201 })
+})

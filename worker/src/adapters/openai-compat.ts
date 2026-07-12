@@ -366,9 +366,22 @@ export class OpenAICompatAdapter implements AIAdapter {
     }
   }
 
+  /**
+   * 将搜索结果格式化成工具回灌文本。
+   * 为了避免 raw_content 撑爆上下文，每个 hit 的正文长度通过 WEB_SEARCH_TOOL_RAW_MAX_CHARS 限制（默认 800 字符）。
+   * 当未返回 raw_content（basic 深度）时只输出 snippet，与旧格式兼容。
+   */
   private formatSearchHits(hits: WebSearchHit[]): string {
-    return hits.map((h, i) =>
-      `[${i + 1}] 标题: ${h.title}\nURL: ${h.url}${h.pub_date ? `\n发布日期: ${h.pub_date}` : ''}\n摘要: ${h.snippet}`
-    ).join('\n\n')
+    const rawMaxChars = Math.max(200, Number(process.env.WEB_SEARCH_TOOL_RAW_MAX_CHARS) || 800)
+    return hits.map((h, i) => {
+      const scoreLine = typeof h.score === 'number' ? `\n相关性: ${h.score.toFixed(2)}` : ''
+      const dateLine = h.pub_date ? `\n发布日期: ${h.pub_date}` : ''
+      // 优先用 raw_content（更完整），回退到 snippet；都做最大长度截断
+      const body = (h.raw_content && h.raw_content.length > (h.snippet?.length ?? 0)) ? h.raw_content : h.snippet
+      const bodyText = body && body.length > rawMaxChars
+        ? body.slice(0, rawMaxChars) + '…（已截断）'
+        : (body ?? '')
+      return `[${i + 1}] 标题: ${h.title}\nURL: ${h.url}${dateLine}${scoreLine}\n内容:\n${bodyText}`
+    }).join('\n\n')
   }
 }

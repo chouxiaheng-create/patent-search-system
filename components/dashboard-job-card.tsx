@@ -9,7 +9,7 @@ import { CancelJobButton } from '@/components/cancel-job-button'
 import { RetryJobButton } from '@/components/retry-job-button'
 import { RetryFailedTasksButton } from '@/components/retry-failed-tasks-button'
 import { JobConfigDialog } from '@/components/job-config-dialog'
-import { Clock, CheckCircle2, AlertCircle, XCircle, Loader2, BarChart3, Settings } from 'lucide-react'
+import { Clock, CheckCircle2, AlertCircle, XCircle, Loader2, BarChart3, Settings, ChevronRight } from 'lucide-react'
 import type { JobStatus } from '@/lib/supabase/types'
 
 const statusConfig: Record<JobStatus, { label: string; color: string; icon: React.ReactNode }> = {
@@ -66,8 +66,10 @@ export function DashboardJobCard({
 
   return (
     <>
-      <Card className="card-apple card-apple-hover">
-        <CardContent className="p-4">
+      <Card className="card-apple card-apple-hover relative">
+        {/* 卡片主体作为可点击区域，点击任意位置进入进度页 */}
+        <Link href={`/search/${job.id}/progress`} className="absolute inset-0 z-0" aria-label={`查看任务 ${docTitle} 进度`} />
+        <CardContent className="p-4 relative z-10">
           <div className="flex items-center gap-4">
             <div className="flex-1 min-w-0">
               {/* 标题行 */}
@@ -120,8 +122,8 @@ export function DashboardJobCard({
             </div>
 
             {/* 操作按钮 */}
-            <div className="flex items-center gap-2 shrink-0">
-              <Button asChild variant="ghost" size="sm" className="rounded-xl text-muted-foreground" title="查看检索配置">
+            <div className="flex items-center gap-2 shrink-0 relative z-20">
+              <Button variant="ghost" size="sm" className="rounded-xl text-muted-foreground" title="查看检索配置" onClick={() => setConfigOpen(true)}>
                 <Settings size={14} />
               </Button>
               {(job.status === 'queued' || job.status === 'running') && (

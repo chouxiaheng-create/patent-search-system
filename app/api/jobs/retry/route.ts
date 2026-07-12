@@ -1,18 +1,19 @@
 // app/api/jobs/retry/route.ts
 // 全量重试：新建一条 job，复制原 job 的 document_id + config，作为独立任务重新执行。
 // 原 failed/cancelled 记录保留作审计，通过 retried_from_job_id 关联。
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/admin'
 import { sendBossJob } from '@/lib/boss-client'
+import { withApiHandler } from '@/lib/api/handler'
 
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler(async (request: NextRequest) => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { jobId } = await request.json() as { jobId?: string }
-  if (!jobId) return Response.json({ error: '缺少 jobId' }, { status: 400 })
+  if (!jobId) return NextResponse.json({ error: '缺少 jobId' }, { status: 400 })
 
   // 取原任务，校验归属与终态
   const { data: orig } = await supabase
@@ -22,9 +23,9 @@ export async function POST(request: NextRequest) {
     .eq('user_id', user.id)
     .single()
 
-  if (!orig) return Response.json({ error: '任务不存在' }, { status: 404 })
+  if (!orig) return NextResponse.json({ error: '任务不存在' }, { status: 404 })
   if (orig.status !== 'failed' && orig.status !== 'cancelled') {
-    return Response.json({ error: '仅失败或已取消的任务可重试' }, { status: 400 })
+    return NextResponse.json({ error: '仅失败或已取消的任务可重试' }, { status: 400 })
   }
 
   // 校验文档仍可检索
@@ -35,9 +36,9 @@ export async function POST(request: NextRequest) {
     .eq('id', orig.document_id)
     .single()
 
-  if (!doc) return Response.json({ error: '原文档不存在' }, { status: 404 })
+  if (!doc) return NextResponse.json({ error: '原文档不存在' }, { status: 404 })
   if (doc.parse_status !== 'done') {
-    return Response.json({ error: '原文档解析状态不可用，请先重新解析' }, { status: 400 })
+    return NextResponse.json({ error: '原文档解析状态不可用，请先重新解析' }, { status: 400 })
   }
 
   // 新建 job，复制配置
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
     .select('id')
     .single()
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   try {
     await sendBossJob('search-job', { jobId: newJob.id })
@@ -62,8 +63,8 @@ export async function POST(request: NextRequest) {
       .from('search_jobs')
       .update({ status: 'failed', completed_at: new Date().toISOString() })
       .eq('id', newJob.id)
-    return Response.json({ error: `入队失败: ${(bossErr as Error).message}` }, { status: 500 })
+    return NextResponse.json({ error: `入队失败: ${(bossErr as Error).message}` }, { status: 500 })
   }
 
-  return Response.json({ jobId: newJob.id }, { status: 201 })
-}
+  return NextResponse.json({ jobId: newJob.id }, { status: 201 })
+})

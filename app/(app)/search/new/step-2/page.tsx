@@ -36,26 +36,61 @@ export default function Step2Page() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [activeStrategy, setActiveStrategy] = useState<SearchStrategy | null>(null)
   const [document, setDocument] = useState<PatentDocument | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!documentId) { router.replace('/search/new/step-1'); return }
     async function init() {
-      const [docRes, modelsRes, strategiesRes] = await Promise.all([
-        fetch(`/api/documents/${documentId}`),
-        fetch('/api/models'),
-        fetch('/api/strategies'),
-      ])
-      const doc: PatentDocument = await docRes.json()
-      if (doc.parse_status !== 'done') { router.replace('/search/new/step-1'); return }
-      setDocument(doc)
-      const allModels: AIModel[] = await modelsRes.json()
-      const allStrategies: SearchStrategy[] = await strategiesRes.json()
-      setModels(allModels)
-      setStrategies(allStrategies)
-      setSelectedSearchModelIds(allModels.filter(m => m.usage_types.includes('search') && m.capabilities.deep_reasoning && m.capabilities.web_search && m.is_builtin).map(m => m.id))
-      setSelectedStrategyIds(allStrategies.filter(s => s.is_builtin).map(s => s.id).slice(0, 2))
-      const reportModels = allModels.filter(m => m.usage_types.includes('report') && m.capabilities.deep_reasoning)
-      if (reportModels.length > 0) setSelectedReportModelIds([reportModels[0].id])
+      setLoading(true)
+      setError(null)
+      try {
+        const [docRes, modelsRes, strategiesRes] = await Promise.all([
+          fetch(`/api/documents/${documentId}`),
+          fetch('/api/models'),
+          fetch('/api/strategies'),
+        ])
+
+        // 先检查 content-type，避免把 HTML 错误页当 JSON 解析
+        async function parseJsonSafe(res: Response, name: string) {
+          if (res.status === 401) {
+            throw new Error('登录状态已过期，请重新登录后再试')
+          }
+          const contentType = res.headers.get('content-type') || ''
+          const text = await res.text()
+          if (!contentType.includes('application/json')) {
+            throw new Error(`${name} 返回了非 JSON 响应（HTTP ${res.status}）：${text.slice(0, 200)}`)
+          }
+          try {
+            return JSON.parse(text)
+          } catch (e) {
+            throw new Error(`${name} 响应无法解析为 JSON（HTTP ${res.status}）：${text.slice(0, 200)}`)
+          }
+        }
+
+        const doc: PatentDocument = await parseJsonSafe(docRes, '文档')
+        if (doc.parse_status !== 'done') { router.replace('/search/new/step-1'); return }
+        setDocument(doc)
+        const [allModels, allStrategies] = await Promise.all([
+          parseJsonSafe(modelsRes, '模型') as Promise<AIModel[]>,
+          parseJsonSafe(strategiesRes, '策略') as Promise<SearchStrategy[]>,
+        ])
+        if (!Array.isArray(allModels) || !Array.isArray(allStrategies)) {
+          throw new Error('模型或策略数据格式异常')
+        }
+        setModels(allModels)
+        setStrategies(allStrategies)
+        setSelectedSearchModelIds(allModels.filter(m => m.usage_types.includes('search') && m.capabilities.deep_reasoning && m.capabilities.web_search && m.is_builtin).map(m => m.id))
+        setSelectedStrategyIds(allStrategies.filter(s => s.is_builtin).map(s => s.id).slice(0, 2))
+        const reportModels = allModels.filter(m => m.usage_types.includes('report') && m.capabilities.deep_reasoning)
+        if (reportModels.length > 0) setSelectedReportModelIds([reportModels[0].id])
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error('[step-2] 加载失败:', msg)
+        setError(msg)
+      } finally {
+        setLoading(false)
+      }
     }
     init()
   }, [documentId])
@@ -94,6 +129,28 @@ export default function Step2Page() {
   const searchModels = models.filter(m => m.usage_types.includes('search'))
   const reportModels = models.filter(m => m.usage_types.includes('report'))
   const canProceed = selectedSearchModelIds.length > 0 && selectedStrategyIds.length > 0 && selectedReportModelIds.length > 0
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <WizardProgress currentStep={2} documentId={documentId ?? undefined} />
+        <div className="py-12 text-center text-muted-foreground">正在加载模型和策略…</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <WizardProgress currentStep={2} documentId={documentId ?? undefined} />
+        <div className="card-apple p-5 space-y-3 mt-4">
+          <h3 className="text-sm font-semibold text-red-500">加载失败</h3>
+          <p className="text-sm text-muted-foreground break-all">{error}</p>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>重试</Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-2xl mx-auto">

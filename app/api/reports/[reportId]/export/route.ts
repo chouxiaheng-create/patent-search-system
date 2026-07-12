@@ -1,6 +1,7 @@
 // app/api/reports/[reportId]/export/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { withApiHandler } from '@/lib/api/handler'
 import {
   Document,
   Packer,
@@ -155,10 +156,10 @@ function buildDocx(report: {
   })
 }
 
-export async function GET(
+export const GET = withApiHandler(async (
   request: NextRequest,
   { params }: { params: Promise<{ reportId: string }> }
-) {
+) => {
   const { reportId } = await params
   const { searchParams } = new URL(request.url)
   const format = searchParams.get('format') || 'markdown'
@@ -224,4 +225,4 @@ export async function GET(
   }
 
   return NextResponse.json({ error: 'Invalid format' }, { status: 400 })
-}
+})

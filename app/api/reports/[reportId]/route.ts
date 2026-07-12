@@ -1,11 +1,12 @@
 // app/api/reports/[reportId]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { withApiHandler } from '@/lib/api/handler'
 
-export async function GET(
-  request: NextRequest,
+export const GET = withApiHandler(async (
+  _request: NextRequest,
   { params }: { params: Promise<{ reportId: string }> }
-) {
+) => {
   const { reportId } = await params
   const supabase = await createClient()
 
@@ -26,4 +27,4 @@ export async function GET(
   }
 
   return NextResponse.json(report)
-}
+})

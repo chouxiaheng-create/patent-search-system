@@ -54,7 +54,7 @@ export default function Step1Page() {
         setDocumentId(urlDocId)
         const docRes = await fetch(`/api/documents/${urlDocId}`)
         const loadedDoc: PatentDocument = await docRes.json()
-        setDocument(loadedDoc)
+        if (docRes.ok) setDocument(loadedDoc)
       }
 
       const [modelsRes, prefsRes] = await Promise.all([
@@ -129,19 +129,36 @@ export default function Step1Page() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileUrl: filePath, fileName: file.name, fileType: ext, parseModelId: selectedModelIds[0], parseSystemPrompt: parsePrompt }),
       })
-      const { documentId: newDocId } = await res.json()
+      const resBody = await res.json()
+      if (!res.ok) {
+        throw new Error(resBody.error || resBody.detail || `服务器错误 (${res.status})`)
+      }
+      const newDocId = resBody.documentId
+      if (!newDocId) {
+        throw new Error('服务器未返回文档ID')
+      }
       setDocumentId(newDocId); setParsing(true)
       const docRes = await fetch(`/api/documents/${newDocId}`)
-      setDocument(await docRes.json())
+      const docBody = await docRes.json()
+      if (!docRes.ok) {
+        throw new Error(docBody.error || docBody.detail || `获取文档失败 (${docRes.status})`)
+      }
+      setDocument(docBody)
     } catch (err) {
       console.error('上传失败:', err)
       toast.error('文件上传失败', { description: err instanceof Error ? err.message : '请检查文件格式和网络连接后重试' })
+      setParsing(false)
     }
     finally { setUploading(false) }
   }
 
   async function handleHistoryDocSelect(docId: string) {
-    const doc = await fetch(`/api/documents/${docId}`).then(r => r.json())
+    const res = await fetch(`/api/documents/${docId}`)
+    const doc = await res.json()
+    if (!res.ok) {
+      toast.error('加载历史文档失败', { description: doc.error || doc.detail || `服务器错误 (${res.status})` })
+      return
+    }
     setDocument(doc); setDocumentId(docId)
   }
 

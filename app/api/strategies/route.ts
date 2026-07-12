@@ -1,11 +1,12 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/admin'
+import { withApiHandler } from '@/lib/api/handler'
 
-export async function GET(_request: NextRequest) {
+export const GET = withApiHandler(async (_request: NextRequest) => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data, error } = await supabase
     .from('search_strategies')
@@ -14,20 +15,20 @@ export async function GET(_request: NextRequest) {
     .order('is_builtin', { ascending: false })
     .order('name')
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json(data)
-}
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+})
 
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler(async (request: NextRequest) => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
   const { name, prompt_template } = body as { name: string; prompt_template: string }
 
   if (!name?.trim() || !prompt_template?.trim()) {
-    return Response.json({ error: '名称和提示词模板不能为空' }, { status: 400 })
+    return NextResponse.json({ error: '名称和提示词模板不能为空' }, { status: 400 })
   }
 
   const admin = createServiceClient()
@@ -37,6 +38,6 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json(data, { status: 201 })
-}
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data, { status: 201 })
+})

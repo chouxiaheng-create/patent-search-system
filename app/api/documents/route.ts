@@ -1,13 +1,14 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/admin'
 import { sendBossJob } from '@/lib/boss-client'
+import { withApiHandler } from '@/lib/api/handler'
 import type { FileType } from '@/lib/supabase/types'
 
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler(async (request: NextRequest) => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { fileUrl, fileName, fileType, parseModelId, parseSystemPrompt } = await request.json() as {
     fileUrl: string; fileName: string; fileType: FileType
@@ -25,9 +26,9 @@ export async function POST(request: NextRequest) {
     .select('id')
     .single()
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await sendBossJob('parse-job', { documentId: data.id, parseModelId, parseSystemPrompt })
 
-  return Response.json({ documentId: data.id }, { status: 201 })
-}
+  return NextResponse.json({ documentId: data.id }, { status: 201 })
+})

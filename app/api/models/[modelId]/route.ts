@@ -1,16 +1,17 @@
 // app/api/models/[modelId]/route.ts
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/admin'
+import { withApiHandler } from '@/lib/api/handler'
 
-export async function PUT(
+export const PUT = withApiHandler(async (
   request: NextRequest,
   { params }: { params: Promise<{ modelId: string }> }
-) {
+) => {
   const { modelId } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: existing } = await supabase
     .from('ai_models')
@@ -18,23 +19,23 @@ export async function PUT(
     .eq('id', modelId)
     .single()
 
-  if (!existing) return Response.json({ error: '模型不存在' }, { status: 404 })
+  if (!existing) return NextResponse.json({ error: '模型不存在' }, { status: 404 })
 
   const body = await request.json()
   const admin = createServiceClient()
 
   // 系统内置模型（owner_id 为空）仅允许更新 API Key
   if (!existing.owner_id) {
-    if (!body.api_key) return Response.json({ error: '内置模型只支持更新 API Key' }, { status: 400 })
+    if (!body.api_key) return NextResponse.json({ error: '内置模型只支持更新 API Key' }, { status: 400 })
     const { data, error } = await admin.from('ai_models').update({ api_key_encrypted: body.api_key }).eq('id', modelId).select().single()
-    if (error) return Response.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     const { api_key_encrypted: _, ...safeData } = data as Record<string, unknown>
-    return Response.json(safeData)
+    return NextResponse.json(safeData)
   }
 
   // 用户自定义模型：验证归属
   if (existing.owner_id !== user.id) {
-    return Response.json({ error: '无权修改此模型' }, { status: 403 })
+    return NextResponse.json({ error: '无权修改此模型' }, { status: 403 })
   }
 
   const { name, api_base_url, model_id, api_key, usage_types, capabilities, adapter_config } = body as {
@@ -53,19 +54,19 @@ export async function PUT(
   if (adapter_config) updates.adapter_config = adapter_config
 
   const { data, error } = await admin.from('ai_models').update(updates).eq('id', modelId).select().single()
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const { api_key_encrypted: _, ...safeData } = data as Record<string, unknown>
-  return Response.json(safeData)
-}
+  return NextResponse.json(safeData)
+})
 
-export async function DELETE(
+export const DELETE = withApiHandler(async (
   _request: NextRequest,
   { params }: { params: Promise<{ modelId: string }> }
-) {
+) => {
   const { modelId } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: existing } = await supabase
     .from('ai_models')
@@ -73,13 +74,13 @@ export async function DELETE(
     .eq('id', modelId)
     .single()
 
-  if (!existing) return Response.json({ error: '模型不存在' }, { status: 404 })
+  if (!existing) return NextResponse.json({ error: '模型不存在' }, { status: 404 })
   if (!existing.owner_id || existing.owner_id !== user.id) {
-    return Response.json({ error: '无权删除此模型' }, { status: 403 })
+    return NextResponse.json({ error: '无权删除此模型' }, { status: 403 })
   }
 
   const admin = createServiceClient()
   const { error } = await admin.from('ai_models').delete().eq('id', modelId)
-  if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json({ ok: true })
-}
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+})
