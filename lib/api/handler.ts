@@ -1,22 +1,20 @@
 // lib/api/handler.ts
 // Next.js App Router API 路由的通用错误包装器。
 // 把所有未捕获异常都转换成 JSON 响应，避免前端拿到 HTML 错误页时解析 JSON 失败。
+//
+// 注意：不使用泛型类型，因为 Turbopack 在处理带 params 的路由时
+// 会因泛型类型推断导致编译 worker 崩溃（Jest worker exceptions）。
 
 import { NextRequest, NextResponse } from 'next/server'
 
-type ApiHandler<P extends Record<string, string> = Record<string, string>> = (
-  request: NextRequest,
-  context: { params: Promise<P> }
-) => Promise<Response>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiHandler = (request: NextRequest, context?: any) => Promise<Response>
 
 /**
  * 包装 API route handler，捕获所有异常并返回 JSON 错误。
- * 同时会记录错误到服务端 console，方便排查。
  */
-export function withApiHandler<P extends Record<string, string> = Record<string, string>>(
-  handler: ApiHandler<P>
-): ApiHandler<P> {
-  return async (request: NextRequest, context: { params: Promise<P> }) => {
+export function withApiHandler(handler: ApiHandler): ApiHandler {
+  return async (request: NextRequest, context?: any) => {
     try {
       return await handler(request, context)
     } catch (error: unknown) {
