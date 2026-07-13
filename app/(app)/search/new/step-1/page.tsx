@@ -160,6 +160,25 @@ export default function Step1Page() {
       return
     }
     setDocument(doc); setDocumentId(docId)
+
+    // 复用历史文献：若状态不是 done（如 failed/pending），自动触发重新解析
+    if (doc.parse_status !== 'done') {
+      if (selectedModelIds.length === 0) {
+        toast.error('请先选择解析模型再使用历史文献')
+        return
+      }
+      setParsing(true)
+      try {
+        const reparseRes = await fetch(`/api/documents/${docId}/reparse`, { method: 'POST' })
+        const reparseBody = await reparseRes.json()
+        if (!reparseRes.ok) {
+          throw new Error(reparseBody.error || reparseBody.detail || '重新解析请求失败')
+        }
+      } catch (err) {
+        setParseError(err instanceof Error ? err.message : '解析启动失败')
+        setParsing(false)
+      }
+    }
   }
 
   async function handleSaveParsedData(updates: { parsed_data: PatentDocument['parsed_data']; user_notes: string }) {
