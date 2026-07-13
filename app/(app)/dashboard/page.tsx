@@ -12,38 +12,29 @@ export default async function DashboardPage() {
 
   if (!user) return null
 
-  // Fetch user's jobs with config
-  const { data: jobs } = await supabase
-    .from('search_jobs')
-    .select(`
-      id, status, created_at, started_at, completed_at, scheduled_at, config,
-      document:patent_documents ( title )
-    `)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(20)
+  // ======== 优化：并行查询，减少串行等待 ========
+  // 第 1 轮（并行）：jobs + models + strategies — 互不依赖
+  const [jobsRes, modelsRes, strategiesRes] = await Promise.all([
+    supabase
+      .from('search_jobs')
+      .select(`id, status, created_at, started_at, completed_at, scheduled_at, config, document:patent_documents ( title )`)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20),
+    supabase.from('ai_models').select('id, name'),
+    supabase.from('search_strategies').select('id, name'),
+  ])
 
-  const jobIds = (jobs || []).map(j => j.id)
+  const jobs = jobsRes.data || []
+  const modelNameMap = new Map((modelsRes.data || []).map(m => [m.id, m.name]))
+  const strategyNameMap = new Map((strategiesRes.data || []).map(s => [s.id, s.name]))
 
-  // Fetch task summaries
+  // 第 2 轮：tasks（依赖 jobs 的 ID 列表）
+  const jobIds = jobs.map(j => j.id)
   const { data: taskSummaries } = jobIds.length > 0
     ? await supabase.from('search_tasks').select('job_id, status, results, model_id, strategy_id').in('job_id', jobIds)
     : { data: [] as Record<string, unknown>[] }
-
-  // Fetch model and strategy names
-  const allModelIds = [...new Set((taskSummaries || []).map(t => t.model_id))]
-  const allStrategyIds = [...new Set((taskSummaries || []).map(t => t.strategy_id))]
-
-  // Also fetch report model names from job configs
-  const reportModelIds = [...new Set((jobs || []).map(j => j.config?.report_model_id).filter(Boolean))]
-  const combinedModelIds = [...new Set([...allModelIds, ...reportModelIds])]
-
-  const [{ data: modelNames }, { data: strategyNames }] = await Promise.all([
-    combinedModelIds.length > 0 ? supabase.from('ai_models').select('id, name').in('id', combinedModelIds) : { data: [] as Record<string, unknown>[] },
-    allStrategyIds.length > 0 ? supabase.from('search_strategies').select('id, name').in('id', allStrategyIds) : { data: [] as Record<string, unknown>[] },
-  ])
-  const modelNameMap = new Map((modelNames || []).map(m => [m.id, m.name]))
-  const strategyNameMap = new Map((strategyNames || []).map(s => [s.id, s.name]))
+  // ======== /并行优化 ========
 
   // Group tasks by job_id
   const tasksByJob = new Map<string, Record<string, unknown>[]>()
