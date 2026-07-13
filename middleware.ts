@@ -42,7 +42,7 @@ function buildCacheKey(request: NextRequest): string | null {
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
-  // 跳过静态资源（保留 API 也走 middleware 以维持认证检查）
+  // 跳过静态资源
   const { pathname } = request.nextUrl
   if (pathname.startsWith('/_next/') || pathname.includes('.')) {
     return supabaseResponse
