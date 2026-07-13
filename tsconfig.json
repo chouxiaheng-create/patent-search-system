@@ -31,5 +31,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "vitest.setup.ts", "__tests__", "worker"]
+  "exclude": ["node_modules", "vitest.setup.ts", "__tests__", "worker", "ai-patent-review-demo"]
 }
