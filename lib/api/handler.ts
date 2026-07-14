@@ -6,7 +6,7 @@
 // 会因泛型类型推断导致编译 worker 崩溃（Jest worker exceptions）。
 
 import { NextRequest, NextResponse } from 'next/server'
-import { ApiError } from '@/app/api/admin/require-admin'
+import { ApiError } from './errors'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ApiHandler = (request: NextRequest, context?: any) => Promise<Response>

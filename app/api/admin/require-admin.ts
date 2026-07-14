@@ -4,15 +4,10 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/admin'
+import { ApiError } from '@/lib/api/errors'
 
-export class ApiError extends Error {
-  status: number
-  constructor(status: number, message: string) {
-    super(message)
-    this.status = status
-    this.name = 'ApiError'
-  }
-}
+// 兼容旧 import 路径：app/api/admin/users/route.ts 等仍可 `from '../require-admin'`
+export { ApiError }
 
 export type AdminContext = {
   userId: string
