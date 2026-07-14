@@ -32,3 +32,58 @@ export const GET = withApiHandler(async (request: NextRequest, ctx: { params: Pr
     reports: reportsR.data ?? [],
   })
 })
+
+export const PATCH = withApiHandler(async (request: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  const { userId: adminId } = await requireAdmin()
+  const { id: targetId } = await ctx.params
+
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object') throw new ApiError(400, '请求体格式错误')
+
+  const { role, confirmText } = body as { role?: string; confirmText?: string }
+  if (role !== 'admin' && role !== 'user') throw new ApiError(400, 'role 必须是 admin 或 user')
+  if (confirmText !== '我确认') throw new ApiError(400, '请输入确认文本"我确认"')
+
+  const admin = createServiceClient()
+
+  // 防锁死：若降级 admin，先看系统中 admin 总数
+  if (role === 'user') {
+    const { count, error: cntErr } = await admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'admin')
+    if (cntErr) throw new ApiError(500, cntErr.message)
+    // 检查目标用户的当前 role
+    const { data: targetProfile } = await admin
+      .from('profiles')
+      .select('role')
+      .eq('id', targetId)
+      .single()
+    if (targetProfile?.role === 'admin' && (count ?? 0) <= 1) {
+      throw new ApiError(409, '系统至少需要 1 个管理员，无法降级')
+    }
+  }
+
+  // 主操作：更新 role
+  const { data, error } = await admin
+    .from('profiles')
+    .update({ role })
+    .eq('id', targetId)
+    .select('id, role')
+    .single()
+  if (error || !data) throw new ApiError(500, error?.message ?? '更新失败')
+
+  // 审计：失败不阻塞
+  try {
+    await admin.from('admin_audit_log').insert({
+      admin_id: adminId,
+      action: role === 'admin' ? 'promote' : 'demote',
+      target_user: targetId,
+      detail: { from: role === 'admin' ? 'user' : 'admin', to: role },
+    })
+  } catch (auditErr) {
+    console.error('[audit] write failed:', auditErr)
+  }
+
+  return NextResponse.json({ user: data })
+})
