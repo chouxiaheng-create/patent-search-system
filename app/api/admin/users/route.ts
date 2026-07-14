@@ -38,14 +38,9 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 
   if (error) throw new ApiError(500, `DB 查询失败: ${error.message}`)
 
-  // 兼容两种 stats 形态：
-  //   1. PostgREST 嵌套 count：[{ count: N }]
-  //   2. 已扁平化（测试 mock）：{ documents: N, jobs: N, reports: N }
-  const pickCount = (val: unknown, key: string): number => {
-    if (Array.isArray(val)) return Number(val[0]?.count ?? 0)
-    if (val && typeof val === 'object') return Number((val as Record<string, unknown>)[key] ?? 0)
-    return 0
-  }
+  // PostgREST 嵌套 count 返回 `[{ count: N }]`，第一项就是要的总数
+  const pickCount = (val: unknown): number =>
+    Array.isArray(val) ? Number(val[0]?.count ?? 0) : 0
 
   const users = (data ?? []).map((u: any) => ({
     id: u.id,
@@ -53,9 +48,9 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     role: u.role,
     created_at: u.created_at,
     stats: {
-      documents: pickCount(u.stats, 'documents'),
-      jobs: pickCount(u.job_stats, 'jobs'),
-      reports: pickCount(u.report_stats, 'reports'),
+      documents: pickCount(u.stats),
+      jobs: pickCount(u.job_stats),
+      reports: pickCount(u.report_stats),
     },
   }))
 

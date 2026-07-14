@@ -56,11 +56,14 @@ describe('GET /api/admin/users', () => {
     const { createClient } = await import('@/lib/supabase/server')
     ;(createClient as ReturnType<typeof vi.fn>).mockResolvedValue(server)
 
+    // PostgREST 真实嵌套 count 形态：`[{ count: N }]`
     const adminRangeResult = {
       data: [
         {
           id: 'u1', email: 'a@x.com', role: 'user', created_at: '2026-01-01T00:00:00Z',
-          stats: { documents: 3, jobs: 1, reports: 1 },
+          stats: [{ count: 3 }],
+          job_stats: [{ count: 7 }],
+          report_stats: [{ count: 2 }],
         },
       ],
       count: 1, error: null,
@@ -81,7 +84,10 @@ describe('GET /api/admin/users', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.users[0].email).toBe('a@x.com')
+    // 验证三个 stats 都从 PostgREST `[{ count: N }]` 形态正确取出
     expect(body.users[0].stats.documents).toBe(3)
+    expect(body.users[0].stats.jobs).toBe(7)
+    expect(body.users[0].stats.reports).toBe(2)
     expect(body.total).toBe(1)
     expect(body.page).toBe(1)
   })
