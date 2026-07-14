@@ -69,3 +69,6 @@ test-*.js
 /专利检索智能体操作录屏.mp4
 /专利检索智能体汇报PPT.pptx
 .playwright-mcp/
+
+# Git worktrees
+/.worktrees/
