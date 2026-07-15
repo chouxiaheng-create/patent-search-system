@@ -13,11 +13,13 @@ export const GET = withApiHandler(async (request: NextRequest, ctx: { params: Pr
   const admin = createServiceClient()
 
   // 并行：profile + 三栏元数据
+  // 注：列名按迁移 20260413000001_schema.sql 的真实 schema 取（filename→title, status→parse_status,
+  //     search_jobs 无 title 列，只取本身有的字段）
   const [profileR, docsR, jobsR, reportsR] = await Promise.all([
     admin.from('profiles').select('id, email, role, created_at').eq('id', id).single(),
-    admin.from('patent_documents').select('id, filename, status, created_at').eq('user_id', id).order('created_at', { ascending: false }),
-    admin.from('search_jobs').select('id, title, status, created_at').eq('user_id', id).order('created_at', { ascending: false }),
-    admin.from('reports').select('id, job_id, created_at').eq('user_id', id).order('created_at', { ascending: false }),
+    admin.from('patent_documents').select('id, title, parse_status, file_type, created_at').eq('user_id', id).order('created_at', { ascending: false }),
+    admin.from('search_jobs').select('id, status, scheduled_at, started_at, completed_at, created_at').eq('user_id', id).order('created_at', { ascending: false }),
+    admin.from('reports').select('id, job_id, doc_count, created_at').eq('user_id', id).order('created_at', { ascending: false }),
   ])
 
   if (profileR.error || !profileR.data) throw new ApiError(404, '用户不存在')

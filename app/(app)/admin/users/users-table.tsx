@@ -1,4 +1,7 @@
 // app/(app)/admin/users/users-table.tsx
+// 列表页（用户表格）：搜索 + 分页 + 角色切换
+// 报告导出入口：顶部"批量导出报告"按钮 → 跳转 /admin/export 选报告
+
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -36,7 +39,10 @@ export function AdminUsersTable() {
       if (search) url.searchParams.set('search', search)
       const res = await fetch(url)
       const body = await res.json()
-      if (!res.ok) throw new Error(body.detail || '加载失败')
+      if (!res.ok) {
+        const msg = body.error || body.detail || body.message || `HTTP ${res.status}`
+        throw new Error(`[${res.status}] ${msg}`)
+      }
       setUsers(body.users)
       setTotal(body.total)
     } finally {
@@ -50,7 +56,7 @@ export function AdminUsersTable() {
 
   return (
     <div className="mt-6 space-y-4">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Input
           placeholder="按邮箱搜索…"
           value={search}
@@ -58,6 +64,11 @@ export function AdminUsersTable() {
           className="max-w-sm"
         />
         <span className="text-sm text-muted-foreground">共 {total} 个用户</span>
+        <div className="ml-auto">
+          <Link href="/admin/export">
+            <Button variant="outline" size="sm">批量导出报告 →</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="border rounded-xl overflow-hidden">
