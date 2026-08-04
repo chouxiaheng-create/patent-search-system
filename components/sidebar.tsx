@@ -13,6 +13,7 @@ import {
   Search,
   Settings,
   Shield,
+  ListChecks,
   LogOut,
   Menu,
   PanelLeftClose,
@@ -110,6 +111,20 @@ function NavContent({
             >
               <Shield size={iconSize} strokeWidth={2} />
               {!collapsed && '管理后台'}
+            </Link>
+            <Link
+              href="/admin/jobs"
+              onClick={onNavigate}
+              className={cn(
+                'flex items-center rounded-xl text-sm font-medium transition-all duration-200',
+                collapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2',
+                pathname.startsWith('/admin/jobs')
+                  ? 'bg-white/10 text-sidebar-foreground'
+                  : 'text-sidebar-foreground/60 hover:text-sidebar-accent-foreground hover:bg-white/10'
+              )}
+            >
+              <ListChecks size={iconSize} strokeWidth={2} />
+              {!collapsed && '任务队列'}
             </Link>
           </>
         )}
