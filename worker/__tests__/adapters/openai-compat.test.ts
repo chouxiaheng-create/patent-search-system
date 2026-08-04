@@ -81,4 +81,41 @@ describe('OpenAICompatAdapter', () => {
     expect(result.success).toBe(false)
     expect(result.error).toBe('模型不存在')
   })
+
+  it("default_on 开启思考时发送 thinking.type=adaptive（DeepSeek/MiniMax 要求，'enabled' 会报 2013）", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'ok' } }] })
+    })
+
+    const adapter = new OpenAICompatAdapter(
+      'https://api.example.com',
+      'key',
+      { provider: 'openai_compat', web_search_method: 'none', thinking_method: 'default_on', reasoning_effort: 'high', web_search_disables_thinking: false, thinking_default_on: true }
+    )
+
+    await adapter.call({ modelId: 'test-model', prompt: 'test', enableThinking: true })
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+    expect(body.thinking).toEqual({ type: 'adaptive' })
+    expect(body.reasoning_effort).toBe('high')
+  })
+
+  it('param 关闭思考时发送 thinking.type=disabled', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'ok' } }] })
+    })
+
+    const adapter = new OpenAICompatAdapter(
+      'https://api.example.com',
+      'key',
+      { provider: 'openai_compat', web_search_method: 'none', thinking_method: 'param', web_search_disables_thinking: false, thinking_default_on: false }
+    )
+
+    await adapter.call({ modelId: 'test-model', prompt: 'test', enableThinking: false })
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+    expect(body.thinking).toEqual({ type: 'disabled' })
+  })
 })

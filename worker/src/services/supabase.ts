@@ -213,20 +213,25 @@ export async function createSearchTasks(jobId: string, modelIds: string[], strat
   return data
 }
 
+// 注意：PostgREST 的 .in() 返回行序是数据库顺序（通常按主键），不是传入数组顺序。
+// 必须按 id 建映射后按传入顺序输出，否则调用方按位置配对（如 report.ts 的 modelNameMap、
+// search-job.ts 的 seedResultsFromDoneTasks）会把模型/策略名错标成别的条目。
 export async function getPlatformNames(modelIds: string[]): Promise<string[]> {
   const { data } = await supabase
     .from('ai_models')
-    .select('name')
+    .select('id, name')
     .in('id', modelIds)
 
-  return (data || []).map(d => d.name)
+  const byId = new Map((data || []).map(d => [d.id, d.name]))
+  return modelIds.map(id => byId.get(id) ?? id)
 }
 
 export async function getStrategyNames(strategyIds: string[]): Promise<string[]> {
   const { data } = await supabase
     .from('search_strategies')
-    .select('name')
+    .select('id, name')
     .in('id', strategyIds)
 
-  return (data || []).map(d => d.name)
+  const byId = new Map((data || []).map(d => [d.id, d.name]))
+  return strategyIds.map(id => byId.get(id) ?? id)
 }

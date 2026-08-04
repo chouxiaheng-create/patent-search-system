@@ -184,13 +184,16 @@ export class OpenAICompatAdapter implements AIAdapter {
    */
   private applyThinkingParams(body: Record<string, unknown>, enableThinking: boolean | undefined): void {
     const { thinking_method, thinking_model_id, reasoning_effort } = this.adapterConfig
+    // 注意：thinking.type 的"开启"值因厂商而异——
+    // DeepSeek/MiniMax（openai_compat 路径）仅接受 'adaptive'|'disabled'（'enabled' 会报 2013 400 错误，
+    // 2026-08 实测 MiniMax：allowed: adaptive, disabled）。Kimi/智谱有独立适配器，各自使用 'enabled'。
     if (thinking_method === 'model_switch' && thinking_model_id && enableThinking) {
       body.model = thinking_model_id
     } else if (thinking_method === 'param') {
-      body.thinking = enableThinking ? { type: 'enabled' } : { type: 'disabled' }
+      body.thinking = enableThinking ? { type: 'adaptive' } : { type: 'disabled' }
     } else if (thinking_method === 'default_on') {
       if (enableThinking) {
-        const thinkingParam: Record<string, unknown> = { type: 'enabled' }
+        const thinkingParam: Record<string, unknown> = { type: 'adaptive' }
         body.thinking = thinkingParam
         if (reasoning_effort) body.reasoning_effort = reasoning_effort
       } else {
