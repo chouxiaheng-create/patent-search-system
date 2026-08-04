@@ -118,6 +118,76 @@ describe('OpenAICompatAdapter agentic 循环', () => {
     expect(mockWebSearch).not.toHaveBeenCalled()
   })
 
+  it('tools_web_search 配置被 API 拒绝（unknown variant）时自动降级 agentic 并成功返回', async () => {
+    // 配置错误地写成了 tools_web_search（DeepSeek/MiniMax 只接受 type:'function'，会报 400）
+    const badConfig = {
+      provider: 'openai_compat' as const,
+      web_search_method: 'tools_web_search' as const,
+      thinking_method: 'none' as const,
+      web_search_disables_thinking: false,
+      thinking_default_on: false,
+    }
+
+    // 第 1 次请求：带 web_search 工具类型 → API 拒绝
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      text: async () => '{"error":{"message":"Failed to deserialize the JSON body into the target type: tools[0].type: unknown variant `web_search`, expected `function`"}}',
+    })
+    // 降级后的 agentic 循环：第 1 轮带 function 工具返回 tool_calls
+    mockFetch.mockResolvedValueOnce(
+      chatResponse({
+        content: null,
+        tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'web_search', arguments: '{"query":"降级检索"}' } }],
+      })
+    )
+    // 第 2 轮返回最终内容
+    mockFetch.mockResolvedValueOnce(chatResponse({ content: '[{"title":"降级成功"}]' }))
+    mockWebSearch.mockResolvedValue([{ title: '降级成功', url: 'https://x', snippet: '摘要' }])
+
+    const adapter = new OpenAICompatAdapter('https://api.example.com', 'k', badConfig)
+    const result = await adapter.call({
+      modelId: 'm',
+      prompt: '检索',
+      enableWebSearch: true,
+      enableThinking: false,
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.content).toContain('降级成功')
+    // 原配置发出的请求确实带了 web_search 工具类型（证明降级前走的是原配置）
+    const firstBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+    expect(firstBody.tools[0].type).toBe('web_search')
+    // 降级后（第 2 次起）工具类型切换为 function（agentic 循环），且真的执行了搜索
+    const degradedBody = JSON.parse(mockFetch.mock.calls[1][1].body)
+    expect(degradedBody.tools[0].type).toBe('function')
+    expect(mockWebSearch).toHaveBeenCalledTimes(1)
+    expect(mockWebSearch.mock.calls[0][0]).toBe('降级检索')
+  })
+
+  it('tools_web_search 配置遇其他 HTTP 错误（401）时不做降级，直接返回错误', async () => {
+    const badConfig = {
+      provider: 'openai_compat' as const,
+      web_search_method: 'tools_web_search' as const,
+      thinking_method: 'none' as const,
+      web_search_disables_thinking: false,
+      thinking_default_on: false,
+    }
+    mockFetch.mockResolvedValue({ ok: false, status: 401, text: async () => 'Unauthorized' })
+
+    const adapter = new OpenAICompatAdapter('https://api.example.com', 'k', badConfig)
+    const result = await adapter.call({
+      modelId: 'm',
+      prompt: '检索',
+      enableWebSearch: true,
+      enableThinking: false,
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/401/)
+    expect(mockWebSearch).not.toHaveBeenCalled()
+  })
+
   it('web_search 失败时回灌错误消息、循环继续', async () => {
     process.env.WEB_SEARCH_MAX_ROUNDS = '1'
     mockFetch.mockImplementation(async (_url: string, opts: { body: string }) => {

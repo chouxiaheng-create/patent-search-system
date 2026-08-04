@@ -59,6 +59,18 @@ export class OpenAICompatAdapter implements AIAdapter {
 
       if (!response.ok) {
         const errorText = await response.text()
+        // 防御性降级（2026-08 根治）：部分 OpenAI 兼容 API（DeepSeek/MiniMax 实测）拒绝
+        // `type: 'web_search'` 工具（400: "tools[0].type: unknown variant"）。
+        // 若模型被错误配置为 tools_web_search（如误执行旧配置脚本），自动改用 agentic 循环
+        // （type:'function' 工具 + 适配器自行搜索）重试，避免任务因此失败。
+        if (
+          options.enableWebSearch &&
+          this.adapterConfig.web_search_method === 'tools_web_search' &&
+          (errorText.includes('unknown variant') || errorText.includes('tools[0].type'))
+        ) {
+          console.warn(`[adapter] API 拒绝 web_search 工具类型，自动降级 agentic 重试: ${errorText.slice(0, 200)}`)
+          return await this.agenticCall(options, controller)
+        }
         return { success: false, error: `HTTP ${response.status}: ${errorText}` }
       }
 

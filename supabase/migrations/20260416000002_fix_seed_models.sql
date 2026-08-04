@@ -1,3 +1,9 @@
+-- ⚠️ 部分内容已过时（2026-08-04 标注）：本迁移为历史记录，其中 Kimi 配置的
+-- provider='openai_compat' 已被独立 kimi 适配器取代（当前 provider='kimi'）；
+-- DeepSeek/MiniMax 的 tools_web_search 配置已被实测拒绝（HTTP 400）。
+-- 仅作历史存档，请勿参考、勿重放、勿用于校准配置。
+-- 当前正确配置见 scripts/update-models.sql 或校准迁移 20260804_calibrate_openai_compat_web_search.sql。
+
 -- 修正 Kimi K2.6（旧 model_id = moonshot-v1-32k）
 UPDATE ai_models SET
   model_id = 'kimi-k2.6',

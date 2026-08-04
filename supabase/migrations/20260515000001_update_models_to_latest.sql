@@ -1,3 +1,8 @@
+-- ⚠️ 已过时（2026-08-04 标注）：本迁移为历史记录，其模型配置（deepseek-v4-pro +
+-- tools_web_search）已被实测证明不可用（DeepSeek API 拒绝 web_search 工具类型，HTTP 400）。
+-- 仅作历史存档，请勿参考、勿重放、勿用于校准配置。
+-- 当前正确配置见 scripts/update-models.sql 或校准迁移 20260804_calibrate_openai_compat_web_search.sql。
+
 -- 更新所有内置模型（除秘塔AI）到最新最强版本
 -- 默认开启深度思考、联网搜索功能
 

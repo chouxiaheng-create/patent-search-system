@@ -438,7 +438,7 @@ interface AIAdapter {
 
 ### 8.2 OpenAICompatAdapter — 通用适配器
 
-用于所有 OpenAI-compatible API (Kimi, 智谱GLM, DeepSeek, Qwen, MiniMax 等)。
+用于 OpenAI-compatible API（DeepSeek、MiniMax、Qwen 等）。Kimi、智谱GLM 已有独立适配器（见 8.3/8.4）。
 
 **请求构建 (buildRequestBody)**：
 
@@ -461,14 +461,19 @@ interface AIAdapter {
 
 ### 8.5 内置模型配置速查
 
+> ⚠️ 2026-08-04 校准：本表与数据库实际配置一致（DeepSeek/MiniMax 已改为 `agentic` 联网）。
+> 旧配置 `tools_web_search` 对 DeepSeek/MiniMax 会报 HTTP 400（`tools[0].type: unknown variant`），
+> 已废弃。校准入口：`scripts/update-models.sql` / 迁移 `20260804_calibrate_openai_compat_web_search.sql`；
+> 代码层兜底：openai-compat 适配器遇该 400 自动降级 agentic。
+
 | 模型        | provider      | web_search_method | thinking_method | 特殊配置                           |
 | --------- | ------------- | ----------------- | --------------- | ------------------------------ |
 | 秘塔AI      | metaso        | native            | none            | 专用搜索引擎                         |
-| Kimi K2.6 | openai_compat | tools_builtin     | default_on      | web_search 时禁用 thinking        |
-| 智谱GLM-5.1 | openai_compat | tools_web_search  | param           | tools 带 search_mode            |
-| DeepSeek  | openai_compat | none              | model_switch    | thinking 切换为 deepseek-reasoner |
-| 阿里千问      | openai_compat | extra_body        | extra_body      | web_search 时禁用 thinking        |
-| MiniMax   | openai_compat | tools_web_search  | extra_body      | —                              |
+| Kimi K2.6 | kimi          | tools_builtin     | default_on      | $web_search 工具；使用时必须禁用 thinking |
+| 智谱GLM-5.1 | zhipu         | tools_web_search  | default_on      | tools 带 search_mode（独立适配器）      |
+| DeepSeek  | openai_compat | agentic           | default_on      | 适配器自行搜索（type:'function' 工具）    |
+| 阿里千问      | openai_compat | extra_body        | extra_body      | enable_search / enable_thinking   |
+| MiniMax   | openai_compat | agentic           | default_on      | 适配器自行搜索（type:'function' 工具）    |
 
 ---
 
