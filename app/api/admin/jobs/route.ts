@@ -39,6 +39,13 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 
   if (error) throw new ApiError(500, `DB 查询失败: ${error.message}`)
 
+  // PostgREST 嵌入关系：to-one 返回对象，to-many 返回数组（兼容两种形态）
+  const pickEmbedded = (val: unknown): Record<string, unknown> => {
+    if (Array.isArray(val)) return (val[0] ?? {}) as Record<string, unknown>
+    if (val && typeof val === 'object') return val as Record<string, unknown>
+    return {}
+  }
+
   const jobs = (data ?? []).map((j: any) => {
     const tasks: Array<{ status: string }> = Array.isArray(j.tasks) ? j.tasks : []
     const task_counts = {
@@ -57,8 +64,8 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       started_at: j.started_at,
       completed_at: j.completed_at,
       scheduled_at: j.scheduled_at,
-      user_email: Array.isArray(j.user_email) ? (j.user_email[0]?.email ?? '') : '',
-      document_title: Array.isArray(j.document_title) ? (j.document_title[0]?.title ?? '') : '',
+      user_email: String(pickEmbedded(j.user_email).email ?? ''),
+      document_title: String(pickEmbedded(j.document_title).title ?? ''),
       task_counts,
       progress_percent: task_counts.total === 0 ? 0 : Math.round((task_counts.done / task_counts.total) * 100),
     }
