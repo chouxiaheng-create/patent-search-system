@@ -96,8 +96,12 @@ export async function handleJobFailure(jobId: string, reason: string): Promise<v
 }
 
 /**
- * 不重排，直接判 failed（仅 running→failed，不覆盖已终态）。
+ * 不重排，直接判 failed（仅 running/queued → failed，不覆盖已终态）。
  * 看门狗、重排入队失败、重排上限耗尽时使用。
+ *
+ * H1 修复：条件由仅 'running' 扩展为 IN ('running','queued')——
+ * 重排路径是先置 queued 再入队，若入队失败（或乐观锁 miss）再走到这里时状态已是 queued，
+ * 原条件不命中会导致任务永远卡在 queued 且队列无任务（僵尸任务）。
  */
 export async function markJobFailed(jobId: string, reason: string, userId?: string): Promise<void> {
   try {
@@ -106,13 +110,18 @@ export async function markJobFailed(jobId: string, reason: string, userId?: stri
         .from('search_jobs')
         .update({ status: 'failed', completed_at: new Date().toISOString() })
         .eq('id', jobId)
-        .eq('status', 'running') // 仅 running→failed，不覆盖 completed/failed/cancelled
+        .in('status', ['running', 'queued']) // 仅 running/queued → failed，不覆盖 completed/failed/cancelled
         .select('user_id'),
       DB_CALL_TIMEOUT_MS,
       'markJobFailed'
     )
     if (res.error) {
       console.error(`[job-retry] markJobFailed update failed for ${jobId}:`, res.error.message)
+      return
+    }
+    if (res.data && res.data.length === 0) {
+      // 状态不是 running/queued（可能已被并发路径改成 completed/cancelled）——不覆盖，仅提示
+      console.warn(`[job-retry] markJobFailed skip for ${jobId}: 状态已不是 running/queued（可能已被其他路径处理）`)
       return
     }
     const uid = userId ?? (res.data && res.data[0] ? (res.data[0] as { user_id: string }).user_id : undefined)

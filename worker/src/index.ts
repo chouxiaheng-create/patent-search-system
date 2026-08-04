@@ -99,10 +99,13 @@ async function main() {
 
   console.log('[Worker] Ready and listening for jobs')
 
-  // 看门狗：每 60s 扫描 running 超过 30min 的任务（> 25min 硬超时，专抓 worker 失联/未正常 settle 的任务），
+  // 看门狗：每 60s 扫描 running 超过阈值的任务（专抓 worker 失联/未正常 settle 的任务），
   // 直接判 failed（不重排，由用户在历史列表手动重试）。pg-boss 侧 active 过期由其自身 expirein=30min 处理。
+  // H3 修复：阈值 40min > handler 25min 硬超时 + 充分缓冲——
+  // 若阈值过小（原 30min），在跑的 handler（硬超时 25min）可能在 25~30min 窗口内完成并写 completed，
+  // 与看门狗的 failed 写入竞争导致状态错乱/重复执行。
   const WATCHDOG_INTERVAL_MS = 60 * 1000
-  const WATCHDOG_STUCK_THRESHOLD_MS = 30 * 60 * 1000
+  const WATCHDOG_STUCK_THRESHOLD_MS = 40 * 60 * 1000
   const watchdog = setInterval(async () => {
     try {
       const stuck = await getStuckRunningJobs(WATCHDOG_STUCK_THRESHOLD_MS)

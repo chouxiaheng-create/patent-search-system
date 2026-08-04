@@ -8,6 +8,11 @@ export function sleep(ms: number): Promise<void> {
  * 给任意 PromiseLike 套一个超时上限（supabase 查询构造器是 thenable 但非 Promise，故用 PromiseLike + Promise.resolve 包一层）。
  * 超时后 reject（原 Promise 不会被取消，但其结果将被丢弃——用于保证调用方有界返回）。
  * 这是"卡住任务自动结束"的关键保证：DB/RPC 不可达时，handler 不会被永不返回的 await 拖死。
+ *
+ * ⚠️ 超时语义（M3 修复）：超时仅代表"调用方等不下去了"，**不代表原操作已失败**。
+ * 底层 DB/RPC 写操作在超时后仍可能成功落库。因此调用方收到超时后**不得立即执行破坏性补偿**
+ * （如覆盖状态），应先重新读取当前状态再决策；写入类调用优先使用带状态条件的原子更新
+ * （如 transitionJobStatus / .eq('status', from)），让"是否生效"由 DB 侧条件保证。
  */
 export function withTimeout<T>(promise: PromiseLike<T>, ms: number, label = 'operation'): Promise<T> {
   let timer: NodeJS.Timeout | undefined
@@ -16,6 +21,12 @@ export function withTimeout<T>(promise: PromiseLike<T>, ms: number, label = 'ope
   })
   return Promise.race<T>([Promise.resolve(promise), timeout]).finally(() => {
     if (timer) clearTimeout(timer)
+  }).catch((err: unknown) => {
+    // 超时告警：提示原操作可能仍在执行/可能已生效，防止调用方盲目补偿造成双重写
+    if (err instanceof Error && /超时/.test(err.message)) {
+      console.warn(`[retry] ${label} 超时（${Math.round(ms / 1000)}s）——底层操作可能仍在执行或已生效，调用方不应盲目补偿`)
+    }
+    throw err
   })
 }
 

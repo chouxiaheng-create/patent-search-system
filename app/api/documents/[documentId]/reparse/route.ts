@@ -15,10 +15,10 @@ export const POST = withApiHandler(async (
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // 验证文档归属
+  // 验证文档归属（同时记录原解析状态，供 H6 入队失败回滚使用）
   const { data: doc, error: docErr } = await supabase
     .from('patent_documents')
-    .select('id, title, parse_config, user_id')
+    .select('id, title, parse_config, user_id, parse_status')
     .eq('id', documentId)
     .eq('user_id', user.id)
     .single()
@@ -36,6 +36,7 @@ export const POST = withApiHandler(async (
 
   // 重置状态并排入解析队列
   const admin = createServiceClient()
+  const prevParseStatus = doc.parse_status as string | undefined
   const { error: updateErr } = await admin
     .from('patent_documents')
     .update({ parse_status: 'pending', quality_warning: null })
@@ -45,11 +46,22 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: updateErr.message }, { status: 500 })
   }
 
-  await sendBossJob('parse-job', {
-    documentId,
-    parseModelId,
-    parseSystemPrompt: parseConfig?.system_prompt ?? '',
-  })
+  try {
+    await sendBossJob('parse-job', {
+      documentId,
+      parseModelId,
+      parseSystemPrompt: parseConfig?.system_prompt ?? '',
+    })
+  } catch (bossErr) {
+    // H6 修复：入队失败时回滚 parse_status 到原值，避免文档永久卡在 pending（队列无任务）
+    console.error('[reparse] sendBossJob failed:', (bossErr as Error).message)
+    const { error: rollbackErr } = await admin
+      .from('patent_documents')
+      .update({ parse_status: prevParseStatus ?? 'failed', quality_warning: null })
+      .eq('id', documentId)
+    if (rollbackErr) console.error('[reparse] 回滚解析状态失败:', rollbackErr.message)
+    return NextResponse.json({ error: `入队失败: ${(bossErr as Error).message}` }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true, documentId })
 })

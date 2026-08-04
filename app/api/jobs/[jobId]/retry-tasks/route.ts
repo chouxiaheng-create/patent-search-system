@@ -16,10 +16,10 @@ export const POST = withApiHandler(async (
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // 校验归属与状态
+  // 校验归属与状态（记录原状态/时间戳，供 M6 入队失败回滚）
   const { data: job } = await supabase
     .from('search_jobs')
-    .select('id, status')
+    .select('id, status, started_at, completed_at, retry_count')
     .eq('id', jobId)
     .eq('user_id', user.id)
     .single()
@@ -42,7 +42,9 @@ export const POST = withApiHandler(async (
   }
 
   // 置回 queued，清时间戳与重排计数；handler 会自动重置非 done 子任务为 pending 并重跑
-  const { error } = await admin
+  // M6 修复：用 .eq('status', job.status) 做乐观锁——若其他请求已抢先修改（如重复点击），
+  // 条件不命中则返回 409，从根上防止同一 job 被多次入队导致并发重复执行子任务。
+  const { data: updated, error } = await admin
     .from('search_jobs')
     .update({
       status: 'queued',
@@ -51,12 +53,30 @@ export const POST = withApiHandler(async (
       completed_at: null
     })
     .eq('id', jobId)
+    .eq('status', job.status)
+    .select('id')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!updated || updated.length === 0) {
+    return NextResponse.json({ error: '任务状态已被其他请求修改，请刷新后重试' }, { status: 409 })
+  }
 
   try {
     await sendBossJob('search-job', { jobId })
   } catch (bossErr) {
+    // M6 修复：入队失败时回滚到原状态，避免 job 卡在 queued 且队列无任务
+    console.error('[retry-tasks] sendBossJob failed:', (bossErr as Error).message)
+    const { error: rollbackErr } = await admin
+      .from('search_jobs')
+      .update({
+        status: job.status,
+        retry_count: job.retry_count,
+        started_at: job.started_at,
+        completed_at: job.completed_at
+      })
+      .eq('id', jobId)
+      .eq('status', 'queued') // 仅当仍是 queued 时回滚，防止覆盖其他路径的改动
+    if (rollbackErr) console.error('[retry-tasks] 回滚任务状态失败:', rollbackErr.message)
     return NextResponse.json({ error: `入队失败: ${(bossErr as Error).message}` }, { status: 500 })
   }
 

@@ -95,10 +95,14 @@ describe('POST /api/jobs/[jobId]/retry-tasks (部分重试)', () => {
             }),
           }
         }
-        // search_jobs update
+        // search_jobs update：M6 乐观锁链 eq(id) → eq(status) → select(id)
         return {
           update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ error: null }),
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockResolvedValue({ data: [{ id: 'j1' }], error: null }),
+              }),
+            }),
           }),
         }
       }),

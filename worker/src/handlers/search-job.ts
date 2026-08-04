@@ -2,7 +2,8 @@
 import type { Job } from 'pg-boss'
 import {
   getModel, getStrategy, getJob, getDocument, updateJob, updateTaskStatus,
-  getSearchTasks, createSearchTasks, resetTasksToPending, getPlatformNames, getStrategyNames
+  getSearchTasks, createSearchTasks, resetTasksToPending, getPlatformNames, getStrategyNames,
+  transitionJobStatus
 } from '../services/supabase'
 import { sendNotification } from '../services/notification'
 import { createAdapter } from '../adapters'
@@ -57,9 +58,15 @@ export async function handleSearchJob(jobs: Job<SearchJobData>[]): Promise<void>
   }, 5000)
 
   // 硬超时 guard：到点 reject，强制结束 execution
+  // H2 修复：hardAborted 标志在超时 reject 时置位，execution 在关键边界检查后提前退出，
+  // 避免超时后 execution 仍继续写库（completed/报告），与 catch 分支的 handleJobFailure 双写竞争。
   let hardTimer: NodeJS.Timeout | undefined
+  let hardAborted = false
   const hardTimeout = new Promise<never>((_, reject) => {
-    hardTimer = setTimeout(() => reject(new Error(`检索任务硬超时（${HARD_TIMEOUT_MS / 60000} 分钟）`)), HARD_TIMEOUT_MS)
+    hardTimer = setTimeout(() => {
+      hardAborted = true
+      reject(new Error(`检索任务硬超时（${HARD_TIMEOUT_MS / 60000} 分钟）`))
+    }, HARD_TIMEOUT_MS)
   })
 
   try {
@@ -138,17 +145,26 @@ export async function handleSearchJob(jobs: Job<SearchJobData>[]): Promise<void>
         }
       }
 
-      // 8. 检查是否被取消
+      // 8. 检查是否被取消 / 是否已硬超时（H2：超时后立即停止，不再写库）
       if (cancelled) {
         console.log(`[search-job] Job ${jobId} was cancelled during execution`)
+        return
+      }
+      if (hardAborted) {
+        console.log(`[search-job] Job ${jobId} hit hard timeout, aborting execution`)
         return
       }
 
       // 9. 生成报告（generateReport 内部会先删旧报告再插入）
       await generateReport(jobId, userId, allResults, config)
 
-      // 10. 更新状态为 'completed'
-      await updateJob(jobId, { status: 'completed', completed_at: new Date().toISOString() })
+      // 10. 更新状态为 'completed'（H2：原子迁移 running→completed，防止与失败/重排路径竞争）
+      const completed = await transitionJobStatus(jobId, 'running', 'completed', { completed_at: new Date().toISOString() })
+      if (!completed) {
+        // 状态已被其他路径（如取消/失败处理/看门狗）改动，不再继续，避免覆盖终态
+        console.warn(`[search-job] Job ${jobId} 状态已非 running（可能已取消/失败），跳过 completed 写入`)
+        return
+      }
 
       // 11. 发送通知
       await sendNotification(userId, 'job_completed', `检索任务完成，共找到 ${allResults.length} 篇文献`, jobId)

@@ -8,6 +8,9 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false }
 })
 
+/** 单个待解析文件的最大字节数（H7 修复：防止超大文件拖垮 worker 内存） */
+const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50 MB
+
 export async function downloadFile(fileUrl: string): Promise<Buffer> {
   const { data, error } = await supabase.storage
     .from('documents')
@@ -16,7 +19,15 @@ export async function downloadFile(fileUrl: string): Promise<Buffer> {
   if (error) throw new Error(`下载文件失败: ${error.message}`)
   if (!data) throw new Error('文件数据为空')
 
+  // H7：下载后立刻校验大小（storage API 的 Blob 可能先返回，故 arrayBuffer 前后各校验一次）
+  if (typeof (data as Blob).size === 'number' && (data as Blob).size > MAX_FILE_BYTES) {
+    throw new Error(`文件超过大小限制（${Math.round(MAX_FILE_BYTES / 1024 / 1024)}MB）`)
+  }
+
   const arrayBuffer = await data.arrayBuffer()
+  if (arrayBuffer.byteLength > MAX_FILE_BYTES) {
+    throw new Error(`文件超过大小限制（${Math.round(MAX_FILE_BYTES / 1024 / 1024)}MB）`)
+  }
   return Buffer.from(arrayBuffer)
 }
 
@@ -75,13 +86,46 @@ export async function updateDocument(documentId: string, updates: Record<string,
   if (error) throw new Error(`更新文档失败: ${error.message}`)
 }
 
-export async function updateJob(jobId: string, updates: Record<string, unknown>) {
-  const { error } = await supabase
+/**
+ * 更新任务记录。
+ * @param match 可选：额外的等值条件（如 { status: 'running' }），用于原子状态迁移。
+ *              条件不命中时 Supabase 返回空 data，此时应视为"未更新"而非报错。
+ */
+export async function updateJob(
+  jobId: string,
+  updates: Record<string, unknown>,
+  match?: Record<string, unknown>
+): Promise<{ updated: boolean }> {
+  let query = supabase
     .from('search_jobs')
     .update(updates)
     .eq('id', jobId)
 
+  if (match) {
+    for (const [k, v] of Object.entries(match)) {
+      query = query.eq(k, v)
+    }
+  }
+
+  const { data, error } = await query.select('id')
+
   if (error) throw new Error(`更新任务失败: ${error.message}`)
+  return { updated: Array.isArray(data) && data.length > 0 }
+}
+
+/**
+ * 原子状态迁移：仅当当前状态为 from 时才更新为 to，防止并发路径互相覆盖。
+ * （H2/H3 修复：completed/failed 等终态写入必须走此函数）
+ * @returns 是否实际完成迁移（false 表示状态已被其他路径改动，调用方应停止后续写入）
+ */
+export async function transitionJobStatus(
+  jobId: string,
+  from: string,
+  to: string,
+  extra: Record<string, unknown> = {}
+): Promise<boolean> {
+  const { updated } = await updateJob(jobId, { status: to, ...extra }, { status: from })
+  return updated
 }
 
 export async function updateTaskStatus(taskId: string, status: string, extra: Record<string, unknown> = {}) {
@@ -157,9 +201,12 @@ export async function createSearchTasks(jobId: string, modelIds: string[], strat
     }))
   )
 
+  // M12：配合数据库唯一索引 uq_search_tasks_job_model_strategy，用 upsert(ignoreDuplicates=true)
+  // 保证幂等——重复插入冲突时静默忽略，从根上消除"先查后插"竞态窗口下的重复子任务
+  // （依赖迁移 20260803_add_search_tasks_unique.sql；若索引缺失会报错，部署时需先执行迁移）。
   const { data, error } = await supabase
     .from('search_tasks')
-    .insert(tasks)
+    .upsert(tasks, { onConflict: 'job_id,model_id,strategy_id', ignoreDuplicates: true })
     .select('id, model_id, strategy_id, status, retry_count')
 
   if (error) throw new Error(`创建子任务失败: ${error.message}`)

@@ -21,31 +21,63 @@ export function ReportView({ report }: ReportViewProps) {
   const [sortBy, setSortBy] = useState<'rank' | 'platform' | 'rating'>('rank')
 
   const handleRate = useCallback(async (index: number, rating: 'useful' | 'irrelevant' | null) => {
-    // 即时乐观更新
-    setDocuments(prev => prev.map((d, i) =>
-      i === index ? { ...d, user_rating: rating } : d
-    ))
+    // 保存前记录原值，失败时回滚（L4 修复）
+    let prevRating: string | null = null
+    setDocuments(prev => {
+      prevRating = prev[index]?.user_rating ?? null
+      return prev.map((d, i) =>
+        i === index ? { ...d, user_rating: rating } : d
+      )
+    })
 
     // 保存到服务器
-    await fetch(`/api/reports/${report.id}/documents/${index}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_rating: rating }),
-    })
+    try {
+      const res = await fetch(`/api/reports/${report.id}/documents/${index}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_rating: rating }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error || `保存失败 (${res.status})`)
+      }
+    } catch (err) {
+      // L4：保存失败时回滚乐观更新，避免界面与实际数据不一致
+      console.error('评分保存失败:', err)
+      setDocuments(prev => prev.map((d, i) =>
+        i === index ? { ...d, user_rating: prevRating } : d
+      ))
+    }
   }, [report.id])
 
   const handleNoteSave = useCallback(async (index: number, note: string) => {
-    // 即时乐观更新
-    setDocuments(prev => prev.map((d, i) =>
-      i === index ? { ...d, user_note: note } : d
-    ))
+    // 保存前记录原值，失败时回滚（L4 修复）
+    let prevNote = ''
+    setDocuments(prev => {
+      prevNote = prev[index]?.user_note ?? ''
+      return prev.map((d, i) =>
+        i === index ? { ...d, user_note: note } : d
+      )
+    })
 
     // 保存到服务器
-    await fetch(`/api/reports/${report.id}/documents/${index}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_note: note }),
-    })
+    try {
+      const res = await fetch(`/api/reports/${report.id}/documents/${index}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_note: note }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error || `保存失败 (${res.status})`)
+      }
+    } catch (err) {
+      // L4：保存失败时回滚乐观更新
+      console.error('备注保存失败:', err)
+      setDocuments(prev => prev.map((d, i) =>
+        i === index ? { ...d, user_note: prevNote } : d
+      ))
+    }
   }, [report.id])
 
   const docTitle = report.document?.title || '专利检索报告'

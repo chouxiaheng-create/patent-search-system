@@ -95,61 +95,76 @@ export async function generateReport(
 
   const htmlContent = buildHtmlReport(reportData)
 
-  // 6. 写入数据库（先删同 job 旧报告，避免部分重试/重排后产生孤儿行；首次运行删 0 行无副作用）
-  await supabase.from('reports').delete().eq('job_id', jobId)
-  const { error } = await supabase.from('reports').insert({
+  // 6. 写入数据库（M8：先插入新报告，成功后再清理同 job 旧报告——
+  //    避免"先删后插"在 insert 失败时丢失旧报告；重复行无害，前端按 created_at 取最新）
+  const { data: inserted, error: insertErr } = await supabase.from('reports').insert({
     job_id: jobId,
     user_id: userId,
     html_content: htmlContent,
     selected_docs: topDocs,
     doc_count: topDocs.length,
     path_summary: pathSummary
-  })
+  }).select('id')
 
-  if (error) throw new Error(`写入报告失败: ${error.message}`)
+  if (insertErr) throw new Error(`写入报告失败: ${insertErr.message}`)
+
+  const newReportId = inserted && inserted[0] ? (inserted[0] as { id: string }).id : null
+  if (newReportId) {
+    // 删除同 job 的旧报告（保留刚插入的最新一条）；失败不阻塞主流程
+    const { error: delErr } = await supabase.from('reports').delete().eq('job_id', jobId).neq('id', newReportId)
+    if (delErr) {
+      console.warn(`[report] 清理旧报告失败（不影响本次结果）: ${delErr.message}`)
+    }
+  }
 }
 
+/**
+ * M7 修复：重构去重逻辑。
+ * 原实现把同一结果同时写入 urlKey 与 titleKey 两个键，`Array.from(seen.values())` 导致
+ * 同一文献在最终结果中出现两次。
+ * 新实现：每个结果只占一个主键（URL 优先，其次标题，最后 fallback），
+ * 用 urlIndex/titleIndex 两个索引分别做 URL 去重与标题去重（专利族合并），不再重复输出。
+ */
 function deduplicateResults(results: Array<SearchResult & { source_task_id: string; source_platform: string; source_strategy: string }>): Array<SearchResult & { source_task_id: string; source_platform: string; source_strategy: string }> {
   const seen = new Map<string, typeof results[0]>()
+  const urlIndex = new Map<string, string>()   // urlKey -> 主键
+  const titleIndex = new Map<string, string>() // titleKey -> 主键
 
   for (const result of results) {
-    // 主键：优先使用 URL 去重
     const urlKey = result.url ? normalizeUrlForDedup(result.url) : null
     const titleKey = normalizeTitleForDedup(result.title)
 
     // URL 去重（同一篇文献在不同来源出现）
-    if (urlKey && seen.has(urlKey)) {
-      // 保留质量分数更高的版本
-      const existing = seen.get(urlKey)!
+    if (urlKey && urlIndex.has(urlKey)) {
+      const existing = seen.get(urlIndex.get(urlKey)!)!
       if ((result.quality_score || 0) > (existing.quality_score || 0)) {
-        seen.set(urlKey, result)
+        seen.set(urlIndex.get(urlKey)!, result)
       }
       continue
     }
 
     // 标题去重（处理专利族：相同标题但不同专利号）
-    if (titleKey && seen.has(titleKey)) {
-      const existing = seen.get(titleKey)!
-      // 如果是专利族（相同标题，不同 URL），合并来源信息
+    if (titleKey && titleIndex.has(titleKey)) {
+      const existing = seen.get(titleIndex.get(titleKey)!)!
       if (existing.url !== result.url) {
-        // 保留质量分数更高的，但记录有多个来源
+        // 专利族：保留质量分数更高的，但记录有多个来源
         if ((result.quality_score || 0) > (existing.quality_score || 0)) {
-          seen.set(titleKey, {
+          seen.set(titleIndex.get(titleKey)!, {
             ...result,
             relevance_desc: `${result.relevance_desc} [注：该专利有多个公开版本]`
           })
         }
+      } else if ((result.quality_score || 0) > (existing.quality_score || 0)) {
+        seen.set(titleIndex.get(titleKey)!, result)
       }
       continue
     }
 
-    // 添加新条目
-    if (urlKey) seen.set(urlKey, result)
-    if (titleKey) seen.set(titleKey, result)
-    if (!urlKey && !titleKey) {
-      // 无 URL 且无标题的情况，使用随机键（低质量，但仍保留）
-      seen.set(`fallback_${seen.size}`, result)
-    }
+    // 添加新条目：每个结果只占一个主键
+    const key = urlKey ?? (titleKey ? `t:${titleKey}` : `fallback_${seen.size}`)
+    seen.set(key, result)
+    if (urlKey) urlIndex.set(urlKey, key)
+    if (titleKey) titleIndex.set(titleKey, key)
   }
 
   return Array.from(seen.values())

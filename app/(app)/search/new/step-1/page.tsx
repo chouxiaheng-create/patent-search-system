@@ -116,6 +116,20 @@ export default function Step1Page() {
 
   async function handleFileSelect(file: File) {
     if (selectedModelIds.length === 0) return
+
+    // H7：上传前校验文件大小与类型（与后端 /api/documents 白名单、worker 50MB 限制保持一致）
+    const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50 MB
+    const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'xlsx', 'txt']
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+    if (file.size > MAX_FILE_BYTES) {
+      toast.error('文件过大', { description: `单个文件不能超过 ${Math.round(MAX_FILE_BYTES / 1024 / 1024)}MB` })
+      return
+    }
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      toast.error('不支持的文件类型', { description: '仅支持 PDF / DOCX / XLSX / TXT' })
+      return
+    }
+
     setUploading(true); setUploadProgress(0)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -124,7 +138,6 @@ export default function Step1Page() {
       const { error: storageError } = await supabase.storage.from('documents').upload(filePath, file)
       if (storageError) throw storageError
       setUploadProgress(100)
-      const ext = file.name.split('.').pop()?.toLowerCase()
       const res = await fetch('/api/documents', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileUrl: filePath, fileName: file.name, fileType: ext, parseModelId: selectedModelIds[0], parseSystemPrompt: parsePrompt }),

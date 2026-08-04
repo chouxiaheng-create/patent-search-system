@@ -32,10 +32,14 @@ function setCachedUser(cacheKey: string, user: { id: string; email?: string } | 
   sessionCache.set(cacheKey, { user, expires: Date.now() + SESSION_CACHE_TTL_MS })
 }
 
-function buildCacheKey(request: NextRequest): string | null {
-  // 用 auth cookie 的 SHA 哈希作为 key。没有 cookie 时返回 null——不缓存。
+async function buildCacheKey(request: NextRequest): Promise<string | null> {
+  // M4 修复：用完整 auth cookie 值的 SHA-256 哈希作为 key（Web Crypto，兼容 Edge Runtime）。
+  // 原实现 `value.slice(-40)` 是截断切片而非哈希（注释声称 SHA 哈希，实际不符），
+  // 存在碰撞风险且语义混乱。无 cookie 时返回 null——不缓存（未登录状态变化快）。
   const authCookie = request.cookies.get('sb-exbxeyystxwzbmqmprym-auth-token')
-  return authCookie?.value?.slice(-40) ?? null
+  if (!authCookie?.value) return null
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(authCookie.value))
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 // ======== /Session 缓存 ========
 
@@ -48,7 +52,7 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   }
 
-  const cacheKey = buildCacheKey(request)
+  const cacheKey = await buildCacheKey(request)
   // 有 cookie 时先查缓存；无 cookie 时直接真实验证（不缓存未登录状态）
   const cachedUser = cacheKey ? getCachedUser(cacheKey) : undefined
 
