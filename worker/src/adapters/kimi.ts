@@ -278,6 +278,13 @@ export class KimiAdapter implements AIAdapter {
       body.thinking = options.enableThinking
         ? { type: 'enabled' }
         : { type: 'disabled' }
+    } else if (this.adapterConfig.thinking_method === 'default_on') {
+      // default_on：模型默认开启思考，enableThinking=true 时无需传参；
+      // 显式关闭时才发送 disabled（否则 API 默认值=开启，违背调用方意图）。
+      // 注意：联网搜索路径会在调用处再覆盖为 disabled（$web_search 要求禁用思考）。
+      if (!options.enableThinking) {
+        body.thinking = { type: 'disabled' }
+      }
     }
 
     return body
